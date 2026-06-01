@@ -1,0 +1,115 @@
+# Python 
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# pytest / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+
+# ruff
+.ruff_cache/
+
+# Alembic (keep migrations, ignore temp)
+*.pyc
+
+# Node.js / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# Build output
+fittrack-frontend/build/
+fittrack-frontend/dist/
+.next/
+out/
+
+# Environment & Secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# Persistent volumes (local DB data)
+pgdata/
+redisdata/
+postgres-data/
+
+# IDEs & Editors
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, WebStorm)
+.idea/
+*.iml
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+
+# Misc 
+*.sqlite3
+*.db
+*.bak
+*.tmp
+*.temp
+*.log
