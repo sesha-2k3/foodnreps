@@ -11,6 +11,9 @@ eggs/
 *.manifest
 *.spec
 
+# local files
+local/
+
 # Virtual environments
 .venv/
 venv/
