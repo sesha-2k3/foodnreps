@@ -13,9 +13,11 @@ Design choice — Settings as a module-level singleton:
     No dependency injection needed for configuration — it is immutable after startup.
 """
 
+from pathlib import Path
 from pydantic import PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         case_sensitive=False,       # DATABASE_URL and database_url both work
         extra="ignore",             # unknown env vars are silently ignored
