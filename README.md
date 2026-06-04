@@ -108,14 +108,14 @@ See the companion documents:
 
 | Sprint | Layer | Status |
 |---|---|---|
-| S0 — Project bootstrap | Setup | ✅ Complete |
-| S1 — Domain layer | Domain | ⬜ Next |
-| S2 — Infrastructure layer | Infrastructure | ⬜ |
-| S3 — Application layer | Application | ⬜ |
-| S4 — Presentation layer | Presentation | ⬜ |
-| S5 — Frontend foundation | Frontend | ⬜ |
-| S6 — FitnessTable component | Frontend | ⬜ |
-| S7 — Client views | Frontend | ⬜ |
-| S8 — Coach + trainer views | Frontend | ⬜ |
-| S9 — Admin views | Frontend | ⬜ |
-| S10 — Cross-cutting features | Full stack | ⬜ |
+| S0 — Project bootstrap | Setup | Complete |
+| S1 — Domain layer | Domain | . Next |
+| S2 — Infrastructure layer | Infrastructure | . |
+| S3 — Application layer | Application | . |
+| S4 — Presentation layer | Presentation | . |
+| S5 — Frontend foundation | Frontend | . |
+| S6 — FitnessTable component | Frontend | . |
+| S7 — Client views | Frontend | . |
+| S8 — Coach + trainer views | Frontend | . |
+| S9 — Admin views | Frontend | . |
+| S10 — Cross-cutting features | Full stack | . |
