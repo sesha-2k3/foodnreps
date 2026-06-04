@@ -1,118 +1,47 @@
-# Python 
+# ── Secrets ─────────────────────────────────────────────
+.env
+*.pem
+*.key
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-*.egg
+*.pyo
+.venv/
+venv/
+env/
+.eggs/
 *.egg-info/
 dist/
 build/
-eggs/
-*.manifest
-*.spec
+.uv/
 
-# local files
-local/
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# pip
-pip-log.txt
-pip-delete-this-directory.txt
-
-# pytest / coverage
+# ── Testing & coverage ────────────────────────────────────────────────────────
 .pytest_cache/
-htmlcov/
 .coverage
-.coverage.*
-coverage.xml
-*.cover
-.hypothesis/
-
-# mypy
+htmlcov/
 .mypy_cache/
-
-# ruff
 .ruff_cache/
 
-# Alembic (keep migrations, ignore temp)
-*.pyc
-
-# Node.js / React
+# ── Node / Frontend ──────────────────────────────────────────────────────────
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-package-lock.json
-yarn.lock
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.nuxt/
 
-# Build output
-fittrack-frontend/build/
-fittrack-frontend/dist/
-.next/
-out/
-
-# Environment & Secrets
-.env
-.env.local
-.env.development
-.env.production
-.env.*.local
-*.pem
-*.key
-*.crt
-
-# Docker
-docker-compose.override.yml
-*.log
-
-# Persistent volumes (local DB data)
-pgdata/
-redisdata/
-postgres-data/
-
-# IDEs & Editors
-# VS Code
-.vscode/
-*.code-workspace
-
-# JetBrains (PyCharm, WebStorm)
+# ── IDEs ─────────────────────────────────────────────────────────────────────-
 .idea/
-*.iml
-
-# Vim / Neovim
+.vscode/
 *.swp
 *.swo
-*~
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# OS Files
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
 
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+# ── Local configuration and references ────────────────────────────────────────
+local/
 
-# Linux
-*~
-.directory
-
-# Misc 
-*.sqlite3
-*.db
-*.bak
-*.tmp
-*.temp
+# ── Docker ────────────────────────────────────────────────────────────────────
 *.log
+
+# ── Alembic auto-generated (keep versions/ tracked) ──────────────────────────
+# Nothing here — alembic/versions/*.py should be committed
