@@ -1,0 +1,42 @@
+repos:
+
+  # ── Ruff: linting + formatting (replaces black, isort, flake8) ──────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.5
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+      - id: ruff-format
+        name: ruff format
+        files: ^backend/
+
+  # ── Mypy: type checking ───────────────────────────────────────────────────────
+  # This enforces the layer boundary rule: any import from the wrong layer
+  # fails the type check and blocks the commit.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1
+    hooks:
+      - id: mypy
+        name: mypy type check
+        args: [--strict]
+        files: ^backend/
+        additional_dependencies:
+          - "pydantic>=2.0"
+          - "pydantic-settings>=2.0"
+          - "sqlalchemy>=2.0"
+          - "sqlalchemy[mypy]>=2.0"
+          - "fastapi>=0.115"
+          - "python-jose[cryptography]>=3.3"
+
+  # ── General hygiene ──────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: detect-private-key    # blocks accidentally committing secrets
