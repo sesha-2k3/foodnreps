@@ -110,7 +110,7 @@ See the companion documents:
 |---|---|---|
 | S0 — Project bootstrap | Setup | Complete |
 | S1 — Domain layer | Domain | Complete |
-| S2 — Infrastructure layer | Infrastructure | . |
+| S2 — Infrastructure layer | Infrastructure | Complete |
 | S3 — Application layer | Application | . |
 | S4 — Presentation layer | Presentation | . |
 | S5 — Frontend foundation | Frontend | . |
