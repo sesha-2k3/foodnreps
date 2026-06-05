@@ -18,8 +18,8 @@ from sqlalchemy import text
 from core.config import settings
 from infrastructure.db.session import AsyncSessionLocal, engine
 
-
 # ── Lifespan ──────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -57,7 +57,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
-    allow_credentials=True,      # required for httpOnly cookie (refresh token)
+    allow_credentials=True,  # required for httpOnly cookie (refresh token)
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -77,6 +77,7 @@ app.add_middleware(
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
+
 
 @app.get("/health", tags=["Health"], summary="Health check with DB connectivity")
 async def health_check() -> dict[str, str]:
