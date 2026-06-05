@@ -20,16 +20,19 @@ from infrastructure.db.models import ClientStaffAssignmentModel
 
 
 class ClientStaffAssignmentRepository(IClientStaffAssignmentRepository):
-
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     def _to_entity(self, m: ClientStaffAssignmentModel) -> ClientStaffAssignment:
         return ClientStaffAssignment(
-            id=m.id, client_id=m.client_id, staff_id=m.staff_id,
+            id=m.id,
+            client_id=m.client_id,
+            staff_id=m.staff_id,
             staff_role=m.staff_role,
-            assigned_at=m.assigned_at, ended_at=m.ended_at,
-            ended_reason=m.ended_reason, assigned_by=m.assigned_by,
+            assigned_at=m.assigned_at,
+            ended_at=m.ended_at,
+            ended_reason=m.ended_reason,
+            assigned_by=m.assigned_by,
         )
 
     async def get_active_for_client(
@@ -54,9 +57,7 @@ class ClientStaffAssignmentRepository(IClientStaffAssignmentRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def get_active_for_staff(
-        self, staff_id: UUID
-    ) -> list[ClientStaffAssignment]:
+    async def get_active_for_staff(self, staff_id: UUID) -> list[ClientStaffAssignment]:
         stmt = select(ClientStaffAssignmentModel).where(
             ClientStaffAssignmentModel.staff_id == staff_id,
             ClientStaffAssignmentModel.ended_at.is_(None),
@@ -75,14 +76,15 @@ class ClientStaffAssignmentRepository(IClientStaffAssignmentRepository):
         result = await self._session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars()]
 
-    async def save(
-        self, assignment: ClientStaffAssignment
-    ) -> ClientStaffAssignment:
+    async def save(self, assignment: ClientStaffAssignment) -> ClientStaffAssignment:
         model = ClientStaffAssignmentModel(
-            id=assignment.id, client_id=assignment.client_id,
-            staff_id=assignment.staff_id, staff_role=assignment.staff_role,
+            id=assignment.id,
+            client_id=assignment.client_id,
+            staff_id=assignment.staff_id,
+            staff_role=assignment.staff_role,
             assigned_at=assignment.assigned_at,
-            ended_at=assignment.ended_at, ended_reason=assignment.ended_reason,
+            ended_at=assignment.ended_at,
+            ended_reason=assignment.ended_reason,
             assigned_by=assignment.assigned_by,
         )
         self._session.add(model)
