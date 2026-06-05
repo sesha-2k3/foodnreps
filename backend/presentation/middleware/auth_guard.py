@@ -1,161 +1,134 @@
 """
-JWT encoding/decoding and password hashing utilities.
+JWT authentication dependency and role-based authorisation guard.
 
-Design choice — lives in core/, not application/:
-    Two layers consume this module: AuthService (application layer) and JWT
-    middleware (presentation layer, Sprint 4). Placing it in application/
-    would force the presentation layer to import downward through application/,
-    creating a cross-layer dependency. core/ has no layer affiliation and is
-    safe to import from any layer — it is the correct home for shared
-    infrastructure primitives that are not themselves business logic.
+Design choice — CurrentUser is not a full User domain entity:
+    Decoding the access token gives us user_id and role from the JWT payload.
+    Loading the full User entity from the database on every authenticated request
+    would add a DB round-trip to every API call. The role is already encoded in
+    the token — re-reading it from the DB produces no new information for the
+    15-minute access token lifetime. If a role changes in the database, the
+    current token reflects the login-time role until it expires. Role changes
+    requiring re-login is consistent with standard JWT practice.
 
-Design choice — pure functions, not a class:
-    These are stateless transformations. A class with no mutable state is just
-    a namespace with extra syntax. Module-level functions are simpler, faster
-    to call, and trivially patchable in unit tests via unittest.mock.patch.
+Design choice — two separate dependencies, not one combined:
+    get_current_user handles authentication only (who are you?).
+    require_role handles authorisation only (can you do this?).
+    Separating them enables personal plan routes to use get_current_user
+    directly (any authenticated role passes), while role-specific routes
+    compose require_role on top. If they were one combined function, a
+    "any authenticated user" route would need a special sentinel value.
 
-Design choice — two decode functions (verify_exp vs ignore_exp):
-    decode_token enforces expiry — the normal path for protected routes.
-    decode_token_ignore_expiry is used only by AuthService.logout() so that
-    a client can revoke an already-expired refresh token without receiving
-    an Unauthorized error. Logout intent is valid regardless of expiry.
-
-Design choice — token type claim ("type":  "access" | "refresh"):
-    This prevents a refresh token from being used as an access token and
-    vice versa. Without it, a long-lived refresh token that leaks could be
-    presented to a protected route and succeed the signature check.
+Design choice — require_role is a factory, not a dependency:
+    Depends(require_role(UserRole.FITNESS_TRAINER)) is a per-role closure
+    created at route definition time. The alternative (a single dependency
+    that reads the role from a route parameter) is less explicit and harder
+    to read in the route signature.
 """
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
-import bcrypt
-from jose import JWTError, jwt  # type: ignore[import-untyped]
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from core.config import settings
-from core.exceptions import UnauthorizedError
+from core.exceptions import ForbiddenError, UnauthorizedError
+from core.security import decode_token
+from domain.entities.enums import UserRole
 
-# ── Password hashing ──────────────────────────────────────────────────────────
+# FastAPI's built-in Bearer scheme — reads the Authorization: Bearer <token> header.
+# auto_error=False lets us produce our own UnauthorizedError instead of FastAPI's
+# default 403 (which would be semantically wrong — missing credentials → 401).
+_bearer = HTTPBearer(auto_error=False)
 
 
-def hash_password(plain: str) -> str:
+@dataclass(frozen=True)
+class CurrentUser:
     """
-    Hash a plaintext password with bcrypt and return a UTF-8 string.
+    Lightweight authenticated user context decoded from the access token.
 
-    bcrypt is intentionally slow (~100 ms at the default work factor of 12).
-    This cost makes offline brute-force attacks against the stored hash
-    computationally impractical. Never reduce the work factor below 12
-    in production.
+    Carried through every authenticated request. Frozen so it cannot be
+    accidentally mutated between the middleware and the service call.
+
+    Design: id and role are the only fields needed by services for
+    authorisation decisions. Services receive CurrentUser.id as the
+    actor_id parameter — never the full User entity for auth purposes.
     """
-    hashed: bytes = bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt())
-    return hashed.decode("utf-8")
+
+    id: UUID
+    role: UserRole
 
 
-def verify_password(plain: str, hashed: str) -> bool:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> CurrentUser:
     """
-    Return True if plain matches the stored bcrypt hash.
+    Decode the Bearer access token and return a CurrentUser.
 
-    bcrypt.checkpw uses a constant-time comparison — the result takes the
-    same amount of time regardless of how close the guess was. This prevents
-    timing attacks that could reveal partial information about the hash.
+    Raises UnauthorizedError (→ HTTP 401) if:
+    - No Authorization header is present.
+    - The token is expired.
+    - The token signature is invalid.
+    - The token type claim is not "access" (prevents refresh tokens being
+      used as access tokens — the type claim is set by create_access_token).
+
+    Does not touch the database.
     """
-    return bool(bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8")))
-
-
-# ── Token creation ────────────────────────────────────────────────────────────
-
-
-def create_access_token(user_id: UUID, role: str) -> str:
-    """
-    Encode a short-lived access token (default: 15 minutes).
-
-    Payload claims:
-        sub   — user_id as string (standard JWT subject claim)
-        role  — UserRole string value for route-level authorisation
-        exp   — expiry timestamp (validated automatically by python-jose)
-        type  — "access" (distinguishes from refresh tokens)
-    """
-    expires = datetime.now(tz=UTC) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
-    payload = {
-        "sub": str(user_id),
-        "role": role,
-        "exp": expires,
-        "type": "access",
-    }
-    return str(
-        jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
-    )
-
-
-def create_refresh_token_jwt(user_id: UUID, token_id: UUID) -> str:
-    """
-    Encode a long-lived refresh token (default: 7 days).
-
-    Payload claims:
-        sub   — user_id as string
-        jti   — token_id UUID as string (stored in refresh_tokens.token_id)
-        exp   — expiry timestamp
-        type  — "refresh" (prevents use as an access token)
-
-    The full JWT string is never stored in the database — only token_id (jti).
-    A database breach therefore never exposes a valid, usable token — only
-    an identifier that is useless without the signing secret.
-    """
-    expires = datetime.now(tz=UTC) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
-    payload = {
-        "sub": str(user_id),
-        "jti": str(token_id),
-        "exp": expires,
-        "type": "refresh",
-    }
-    return str(
-        jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
-    )
-
-
-# ── Token decoding ────────────────────────────────────────────────────────────
-
-
-def decode_token(token: str) -> dict[str, object]:
-    """
-    Decode and fully verify a JWT — signature, expiry, and algorithm.
-
-    Returns the raw payload dict on success.
-    Raises UnauthorizedError if the token is expired, tampered, or malformed.
-
-    Called by: AuthService.refresh(), Sprint 4 JWT middleware.
-    """
-    try:
-        payload: dict[str, object] = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm],
+    if credentials is None:
+        raise UnauthorizedError(
+            "Authentication required. "
+            "Provide an access token in the Authorization: Bearer header."
         )
-        return payload
-    except JWTError as exc:
-        raise UnauthorizedError(f"Invalid or expired token: {exc}") from exc
 
+    payload = decode_token(
+        credentials.credentials
+    )  # raises UnauthorizedError if invalid
 
-def decode_token_ignore_expiry(token: str) -> dict[str, object]:
-    """
-    Decode a JWT verifying signature and algorithm but NOT expiry.
-
-    Used exclusively by AuthService.logout() so that a client presenting
-    an already-expired refresh token can still revoke it. The intent
-    (end this session) is valid regardless of whether the token has expired.
-    Expiry-checking is bypassed only here — all other callers use decode_token.
-    """
-    try:
-        payload: dict[str, object] = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm],
-            options={"verify_exp": False},
+    if payload.get("type") != "access":
+        raise UnauthorizedError(
+            "The provided token is a refresh token, not an access token. "
+            "Use the access token returned by /auth/login or /auth/refresh."
         )
-        return payload
-    except JWTError as exc:
-        raise UnauthorizedError(f"Malformed token: {exc}") from exc
+
+    user_id_raw = payload.get("sub")
+    role_raw = payload.get("role")
+    if not isinstance(user_id_raw, str) or not isinstance(role_raw, str):
+        raise UnauthorizedError("Malformed token payload: missing sub or role claim")
+
+    try:
+        role = UserRole(role_raw)
+    except ValueError:
+        raise UnauthorizedError(
+            f"Unrecognised role in token payload: '{role_raw}'"
+        ) from None
+
+    return CurrentUser(id=UUID(user_id_raw), role=role)
+
+
+def require_role(*roles: UserRole) -> Callable[..., Coroutine[Any, Any, CurrentUser]]:
+    """
+    Return a FastAPI dependency that enforces role membership.
+
+    Usage in routes:
+        current_user: CurrentUser = Depends(require_role(UserRole.FITNESS_TRAINER))
+        current_user: CurrentUser = Depends(require_role(
+            UserRole.MASTER_COACH, UserRole.SUPER_ADMIN
+        ))
+
+    Raises ForbiddenError (→ HTTP 403) if the authenticated user's role
+    is not in the allowed set.
+    """
+
+    async def _check_role(
+        current_user: CurrentUser = Depends(get_current_user),
+    ) -> CurrentUser:
+        if current_user.role not in roles:
+            allowed = [r.value for r in roles]
+            raise ForbiddenError(
+                f"This endpoint requires one of the following roles: {allowed}. "
+                f"Your role is '{current_user.role.value}'."
+            )
+        return current_user
+
+    return _check_role
