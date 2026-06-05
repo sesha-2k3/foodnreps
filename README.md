@@ -111,7 +111,7 @@ See the companion documents:
 | S0 — Project bootstrap | Setup | Complete |
 | S1 — Domain layer | Domain | Complete |
 | S2 — Infrastructure layer | Infrastructure | Complete |
-| S3 — Application layer | Application | . |
+| S3 — Application layer | Application | Complete |
 | S4 — Presentation layer | Presentation | . |
 | S5 — Frontend foundation | Frontend | . |
 | S6 — FitnessTable component | Frontend | . |
