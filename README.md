@@ -112,7 +112,7 @@ See the companion documents:
 | S1 — Domain layer | Domain | Complete |
 | S2 — Infrastructure layer | Infrastructure | Complete |
 | S3 — Application layer | Application | Complete |
-| S4 — Presentation layer | Presentation | . |
+| S4 — Presentation layer | Presentation | Complete |
 | S5 — Frontend foundation | Frontend | . |
 | S6 — FitnessTable component | Frontend | . |
 | S7 — Client views | Frontend | . |
