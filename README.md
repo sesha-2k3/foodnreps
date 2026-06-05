@@ -10,7 +10,7 @@ programmes and diet plans.
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI + Python 3.12 |
+| Backend | FastAPI + Python 3.14 |
 | ORM | SQLAlchemy 2.0 async |
 | Database | PostgreSQL 16 |
 | Migrations | Alembic |
@@ -109,7 +109,7 @@ See the companion documents:
 | Sprint | Layer | Status |
 |---|---|---|
 | S0 — Project bootstrap | Setup | Complete |
-| S1 — Domain layer | Domain | . Next |
+| S1 — Domain layer | Domain | Complete |
 | S2 — Infrastructure layer | Infrastructure | . |
 | S3 — Application layer | Application | . |
 | S4 — Presentation layer | Presentation | . |
