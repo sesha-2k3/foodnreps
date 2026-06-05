@@ -20,6 +20,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
+
 class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────────────────────
     # PostgresDsn validates the URL format (scheme, host, port, db name).
@@ -53,8 +54,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
-        case_sensitive=False,       # DATABASE_URL and database_url both work
-        extra="ignore",             # unknown env vars are silently ignored
+        case_sensitive=False,  # DATABASE_URL and database_url both work
+        extra="ignore",  # unknown env vars are silently ignored
     )
 
     @model_validator(mode="after")
@@ -71,7 +72,7 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.jwt_secret == placeholder:
             raise ValueError(
                 "JWT_SECRET must be changed in production. "
-                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
             )
         return self
 

@@ -22,19 +22,20 @@ Design choice — StaffRole is a subset of UserRole:
     receive UserRole.CLIENT or UserRole.SUPER_ADMIN.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """Role of a user in the platform. Stored in users.role."""
-    CLIENT          = "client"
+
+    CLIENT = "client"
     FITNESS_TRAINER = "fitness_trainer"
-    NUTRITIONIST    = "nutritionist"
-    MASTER_COACH    = "master_coach"
-    SUPER_ADMIN     = "super_admin"
+    NUTRITIONIST = "nutritionist"
+    MASTER_COACH = "master_coach"
+    SUPER_ADMIN = "super_admin"
 
 
-class StaffRole(str, Enum):
+class StaffRole(StrEnum):
     """
     Subset of UserRole — only roles that can be assigned to a client.
     Stored in client_staff_assignments.staff_role.
@@ -42,28 +43,31 @@ class StaffRole(str, Enum):
     Design: A separate enum prevents accidentally assigning a CLIENT or
     SUPER_ADMIN as coaching staff to another client.
     """
+
     FITNESS_TRAINER = "fitness_trainer"
-    NUTRITIONIST    = "nutritionist"
-    MASTER_COACH    = "master_coach"
+    NUTRITIONIST = "nutritionist"
+    MASTER_COACH = "master_coach"
 
 
-class FitnessGoal(str, Enum):
+class FitnessGoal(StrEnum):
     """Client's primary fitness objective. Stored in intake_profiles.fitness_goal."""
-    WEIGHT_LOSS        = "weight_loss"
-    MUSCLE_GAIN        = "muscle_gain"
-    ENDURANCE          = "endurance"
+
+    WEIGHT_LOSS = "weight_loss"
+    MUSCLE_GAIN = "muscle_gain"
+    ENDURANCE = "endurance"
     BODY_RECOMPOSITION = "body_recomposition"
-    GENERAL_HEALTH     = "general_health"
+    GENERAL_HEALTH = "general_health"
 
 
-class ExperienceLevel(str, Enum):
+class ExperienceLevel(StrEnum):
     """Client's self-reported training experience. Stored in intake_profiles.experience_level."""
-    BEGINNER     = "beginner"
+
+    BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
-    ADVANCED     = "advanced"
+    ADVANCED = "advanced"
 
 
-class PlanType(str, Enum):
+class PlanType(StrEnum):
     """
     Discriminator for polymorphic plan references.
     Used in plan_versions, plan_comments, plan_activity_log.
@@ -71,32 +75,35 @@ class PlanType(str, Enum):
     Design: These three tables use (plan_type, plan_id) to reference either
     workout_programs or diet_plans without two nullable FK columns.
     """
+
     WORKOUT = "workout"
-    DIET    = "diet"
+    DIET = "diet"
 
 
-class ActivityAction(str, Enum):
+class ActivityAction(StrEnum):
     """
     Actions recorded in plan_activity_log.
     Enables filtering ("show me all entry_added events"), aggregation,
     and UI icon selection without parsing free-text descriptions.
     """
-    CREATED          = "created"
-    UPDATED          = "updated"
-    ENTRY_ADDED      = "entry_added"
-    ENTRY_REMOVED    = "entry_removed"
-    ENTRY_UPDATED    = "entry_updated"
-    COMMENTED        = "commented"
-    ACTIVATED        = "activated"
-    DEACTIVATED      = "deactivated"
+
+    CREATED = "created"
+    UPDATED = "updated"
+    ENTRY_ADDED = "entry_added"
+    ENTRY_REMOVED = "entry_removed"
+    ENTRY_UPDATED = "entry_updated"
+    COMMENTED = "commented"
+    ACTIVATED = "activated"
+    DEACTIVATED = "deactivated"
     OVERRIDE_APPLIED = "override_applied"
 
 
-class VideoSource(str, Enum):
+class VideoSource(StrEnum):
     """
     How the video was attached to a workout log (Phase 2 field).
     Stored in workout_logs.video_source.
     Needed to render the correct player (embedded link vs internal upload).
     """
+
     EXTERNAL_LINK = "external_link"
-    UPLOAD        = "upload"
+    UPLOAD = "upload"

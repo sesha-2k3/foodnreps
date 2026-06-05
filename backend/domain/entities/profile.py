@@ -34,17 +34,18 @@ class IntakeProfile:
         Ongoing weight tracking is in BodyMetric. These two fields are what
         the client reported at intake — not live values.
     """
-    id:                UUID
-    client_id:         UUID
-    fitness_goal:      FitnessGoal
-    experience_level:  ExperienceLevel
-    injuries:          tuple[str, ...]     # e.g. ("lower_back", "left_knee")
-    equipment:         tuple[str, ...]     # e.g. ("barbell", "pull_up_bar")
-    dietary_notes:     str | None
-    target_weight_kg:  Decimal | None
+
+    id: UUID
+    client_id: UUID
+    fitness_goal: FitnessGoal
+    experience_level: ExperienceLevel
+    injuries: tuple[str, ...]  # e.g. ("lower_back", "left_knee")
+    equipment: tuple[str, ...]  # e.g. ("barbell", "pull_up_bar")
+    dietary_notes: str | None
+    target_weight_kg: Decimal | None
     current_weight_kg: Decimal | None
-    completed_at:      datetime
-    updated_at:        datetime
+    completed_at: datetime
+    updated_at: datetime
 
 
 @dataclass(frozen=True)
@@ -65,15 +66,16 @@ class BodyMetric:
         enforces it here so the violation is caught before any DB call is
         made, with a clear domain error rather than a DB constraint violation.
     """
-    id:             UUID
-    user_id:        UUID
-    recorded_by:    UUID
-    recorded_at:    datetime
-    weight_kg:      Decimal | None
-    body_fat_pct:   Decimal | None
+
+    id: UUID
+    user_id: UUID
+    recorded_by: UUID
+    recorded_at: datetime
+    weight_kg: Decimal | None
+    body_fat_pct: Decimal | None
     muscle_mass_kg: Decimal | None
-    notes:          str | None
-    created_at:     datetime
+    notes: str | None
+    created_at: datetime
 
     def __post_init__(self) -> None:
         """
@@ -81,7 +83,9 @@ class BodyMetric:
         Mirrors: CHECK (weight_kg IS NOT NULL OR body_fat_pct IS NOT NULL
                         OR muscle_mass_kg IS NOT NULL)
         """
-        if all(v is None for v in (self.weight_kg, self.body_fat_pct, self.muscle_mass_kg)):
+        if all(
+            v is None for v in (self.weight_kg, self.body_fat_pct, self.muscle_mass_kg)
+        ):
             raise ValueError(
                 "BodyMetric requires at least one measurement: "
                 "weight_kg, body_fat_pct, or muscle_mass_kg."

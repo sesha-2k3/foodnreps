@@ -29,11 +29,13 @@ each subtype to the correct HTTP status code automatically.
 
 # ── Base ──────────────────────────────────────────────────────────────────────
 
+
 class FoodNRepsError(Exception):
     """Base class for all application-specific exceptions."""
 
 
 # ── Standard HTTP-mappable errors ─────────────────────────────────────────────
+
 
 class NotFoundError(FoodNRepsError):
     """
@@ -82,6 +84,7 @@ class ValidationError(FoodNRepsError):
 
 
 # ── Domain-specific conflicts ─────────────────────────────────────────────────
+
 
 class AssignmentConflictError(ConflictError):
     """

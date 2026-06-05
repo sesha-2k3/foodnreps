@@ -22,8 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.db.session import get_session
 
-
 # ── Database session ──────────────────────────────────────────────────────────
+
 
 async def get_db(
     session: AsyncSession = Depends(get_session),

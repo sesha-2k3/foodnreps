@@ -44,13 +44,14 @@ class PlanVersion:
         from the current plan schema — old snapshots remain valid even
         after the live plan structure changes.
     """
-    id:            UUID
-    plan_type:     PlanType
-    plan_id:       UUID
-    snapshot:      dict[str, object]      # full plan state as JSONB blob
-    modified_by:   UUID
-    modified_at:   datetime
-    change_reason: str | None         # mandatory for super_admin, optional for coaches
+
+    id: UUID
+    plan_type: PlanType
+    plan_id: UUID
+    snapshot: dict[str, object]  # full plan state as JSONB blob
+    modified_by: UUID
+    modified_at: datetime
+    change_reason: str | None  # mandatory for super_admin, optional for coaches
 
 
 @dataclass(frozen=True)
@@ -66,11 +67,12 @@ class PlanComment:
         replaces the body with "[comment removed]" in API responses while
         preserving the row and author_id for audit.
     """
-    id:         UUID
-    plan_type:  PlanType
-    plan_id:    UUID
-    author_id:  UUID
-    body:       str
+
+    id: UUID
+    plan_type: PlanType
+    plan_id: UUID
+    author_id: UUID
+    body: str
     is_deleted: bool
     created_at: datetime
     updated_at: datetime
@@ -103,10 +105,11 @@ class PlanActivityLog:
         override_applied: {"reason": "correcting data entry error"}
         commented: {"comment_id": "uuid", "preview": "Drop the weight..."}
     """
-    id:          UUID
-    plan_type:   PlanType
-    plan_id:     UUID
-    actor_id:    UUID
-    action:      ActivityAction
-    metadata:    dict[str, object] | None
+
+    id: UUID
+    plan_type: PlanType
+    plan_id: UUID
+    actor_id: UUID
+    action: ActivityAction
+    metadata: dict[str, object] | None
     occurred_at: datetime

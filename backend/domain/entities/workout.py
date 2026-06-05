@@ -20,8 +20,8 @@ from uuid import UUID
 
 from domain.entities.enums import VideoSource
 
-
 # ── Programme container ───────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class WorkoutProgram:
@@ -46,23 +46,25 @@ class WorkoutProgram:
         checks WHERE id = ? AND version = ? before updating. If the
         version has changed, it raises PlanVersionConflictError.
     """
-    id:               UUID
-    owner_id:         UUID
-    created_by_id:    UUID
-    name:             str
-    is_active:        bool
-    is_personal:      bool
-    is_template:      bool
-    coach_notes:      str | None
-    version:          int
+
+    id: UUID
+    owner_id: UUID
+    created_by_id: UUID
+    name: str
+    is_active: bool
+    is_personal: bool
+    is_template: bool
+    coach_notes: str | None
+    version: int
     last_modified_by: UUID | None
     last_modified_at: datetime | None
-    override_reason:  str | None    # populated only for super_admin writes
-    created_at:       datetime
-    updated_at:       datetime
+    override_reason: str | None  # populated only for super_admin writes
+    created_at: datetime
+    updated_at: datetime
 
 
 # ── Structural containers ─────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ProgramWeek:
@@ -76,12 +78,13 @@ class ProgramWeek:
         The UI computes calendar dates from the client's programme start
         date at render time.
     """
-    id:          UUID
-    program_id:  UUID
+
+    id: UUID
+    program_id: UUID
     week_number: int
-    label:       str            # "Week 1", "Deload Week", "Peak Week"
-    notes:       str | None
-    created_at:  datetime
+    label: str  # "Week 1", "Deload Week", "Peak Week"
+    notes: str | None
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -96,15 +99,17 @@ class ProgramDay:
         Storing day_of_week would encode a calendar assumption that breaks
         for non-standard schedules.
     """
-    id:         UUID
-    week_id:    UUID
+
+    id: UUID
+    week_id: UUID
     day_number: int
-    label:      str             # "Day 1", "Upper Body", "Pull Day"
-    notes:      str | None
+    label: str  # "Day 1", "Upper Body", "Pull Day"
+    notes: str | None
     created_at: datetime
 
 
 # ── Prescription (BLUE — coach fills) ────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class WorkoutPrescription:
@@ -128,23 +133,24 @@ class WorkoutPrescription:
         At least reps_min or reps_note must be provided. Mirrors the DB
         CHECK constraint and catches the violation before any DB call.
     """
-    id:                   UUID
-    day_id:               UUID
-    order_index:          int            # 1, 2, 3... → rendered as A, B, C in UI
-    exercise_name:        str
-    warmup_sets:          int | None
-    working_sets:         int | None
-    reps_min:             int | None
-    reps_max:             int | None
-    reps_note:            str | None
-    prescribed_load_kg:   Decimal | None
-    prescribed_load_text: str | None     # "BW", "Strict", "70% of 1RM"
-    prescribed_rpe:       Decimal | None # e.g. 8.0, 8.5
-    prescribed_rir:       int | None     # Reps In Reserve
-    rest_seconds:         int | None
-    instructions:         str | None
-    created_at:           datetime
-    updated_at:           datetime
+
+    id: UUID
+    day_id: UUID
+    order_index: int  # 1, 2, 3... → rendered as A, B, C in UI
+    exercise_name: str
+    warmup_sets: int | None
+    working_sets: int | None
+    reps_min: int | None
+    reps_max: int | None
+    reps_note: str | None
+    prescribed_load_kg: Decimal | None
+    prescribed_load_text: str | None  # "BW", "Strict", "70% of 1RM"
+    prescribed_rpe: Decimal | None  # e.g. 8.0, 8.5
+    prescribed_rir: int | None  # Reps In Reserve
+    rest_seconds: int | None
+    instructions: str | None
+    created_at: datetime
+    updated_at: datetime
 
     def __post_init__(self) -> None:
         """
@@ -179,10 +185,11 @@ class WorkoutPrescription:
         This is a presentation concern computed here so it is available
         wherever the entity is used — not just in the route layer.
         """
-        return chr(64 + self.order_index)   # chr(65) == "A"
+        return chr(64 + self.order_index)  # chr(65) == "A"
 
 
 # ── Log (RED — client fills) ──────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class WorkoutLog:
@@ -209,21 +216,22 @@ class WorkoutLog:
         Using date reflects the actual semantics, avoids timezone edge
         cases, and makes grouping by day/week/month trivially clean.
     """
-    id:                 UUID
-    prescription_id:    UUID | None
-    client_id:          UUID
-    exercise_name:      str | None     # required when prescription_id is None
-    logged_at:          date
-    actual_sets:        int
-    actual_reps:        int            # reps per set (not total)
-    actual_load_kg:     Decimal | None # None for bodyweight exercises
-    actual_rpe:         Decimal | None # 1.0 – 10.0 in 0.5 increments
-    readiness:          int | None     # 1–10, how fresh the client felt
+
+    id: UUID
+    prescription_id: UUID | None
+    client_id: UUID
+    exercise_name: str | None  # required when prescription_id is None
+    logged_at: date
+    actual_sets: int
+    actual_reps: int  # reps per set (not total)
+    actual_load_kg: Decimal | None  # None for bodyweight exercises
+    actual_rpe: Decimal | None  # 1.0 – 10.0 in 0.5 increments
+    readiness: int | None  # 1–10, how fresh the client felt
     time_taken_seconds: int | None
-    client_notes:       str | None
-    video_url:          str | None     # Phase 2
-    video_source:       VideoSource | None  # Phase 2
-    created_at:         datetime
+    client_notes: str | None
+    video_url: str | None  # Phase 2
+    video_source: VideoSource | None  # Phase 2
+    created_at: datetime
 
     def __post_init__(self) -> None:
         """
@@ -249,9 +257,7 @@ class WorkoutLog:
         if self.actual_load_kg is None:
             return None
         return (
-            Decimal(self.actual_sets)
-            * Decimal(self.actual_reps)
-            * self.actual_load_kg
+            Decimal(self.actual_sets) * Decimal(self.actual_reps) * self.actual_load_kg
         )
 
     @property

@@ -29,7 +29,7 @@ Design choice — RefreshToken is a domain entity:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from domain.entities.enums import UserRole
@@ -41,16 +41,17 @@ class User:
     Every person in the system: clients, all coaching staff, super admins.
     Maps to the `users` table.
     """
-    id:            UUID
-    email:         str
+
+    id: UUID
+    email: str
     password_hash: str
-    full_name:     str
-    role:          UserRole
-    is_active:     bool
-    is_deleted:    bool
-    deleted_at:    datetime | None
-    created_at:    datetime
-    updated_at:    datetime
+    full_name: str
+    role: UserRole
+    is_active: bool
+    is_deleted: bool
+    deleted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
 
     @property
     def is_staff(self) -> bool:
@@ -88,9 +89,10 @@ class RefreshToken:
     is_revoked, and if valid, issues a new token + revokes this one.
     The full JWT string is never stored — only its identifier.
     """
-    id:         UUID
-    user_id:    UUID
-    token_id:   UUID          # jti claim — what the JWT carries
+
+    id: UUID
+    user_id: UUID
+    token_id: UUID  # jti claim — what the JWT carries
     is_revoked: bool
     expires_at: datetime
     revoked_at: datetime | None
@@ -99,8 +101,5 @@ class RefreshToken:
     @property
     def is_valid(self) -> bool:
         """A token is valid when it is not revoked and has not expired."""
-        from datetime import timezone
-        return (
-            not self.is_revoked
-            and self.expires_at > datetime.now(tz=timezone.utc)
-        )
+
+        return not self.is_revoked and self.expires_at > datetime.now(tz=UTC)

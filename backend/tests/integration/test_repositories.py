@@ -25,27 +25,21 @@ Run with:
 """
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from core.exceptions import PlanVersionConflictError
-from tests.conftest import db_session
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.assignment import ClientStaffAssignment
-from domain.entities.diet import DietEntry, DietPlan
 from domain.entities.enums import (
-    ExperienceLevel,
-    FitnessGoal,
     PlanType,
-    ActivityAction,
     StaffRole,
     UserRole,
 )
-from domain.entities.plan import PlanActivityLog, PlanVersion
-from domain.entities.profile import BodyMetric, IntakeProfile
+from domain.entities.plan import PlanVersion
+from domain.entities.profile import BodyMetric
 from domain.entities.user import User
 from domain.entities.workout import (
     ProgramDay,
@@ -57,17 +51,11 @@ from domain.entities.workout import (
 from infrastructure.repositories.assignment_repository import (
     ClientStaffAssignmentRepository,
 )
-from infrastructure.repositories.diet_repository import (
-    DietEntryRepository,
-    DietPlanRepository,
-)
 from infrastructure.repositories.plan_repository import (
-    PlanActivityLogRepository,
     PlanVersionRepository,
 )
 from infrastructure.repositories.profile_repository import (
     BodyMetricRepository,
-    IntakeProfileRepository,
 )
 from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.workout_repository import (
@@ -78,7 +66,7 @@ from infrastructure.repositories.workout_repository import (
     WorkoutProgramRepository,
 )
 
-NOW = datetime(2025, 4, 8, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2025, 4, 8, 12, 0, 0, tzinfo=UTC)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -481,8 +469,6 @@ class TestBodyMetricRepository:
     async def test_list_returns_most_recent_first(
         self, db_session: AsyncSession
     ) -> None:
-        from datetime import timezone
-        import datetime as dt
 
         user_repo = UserRepository(db_session)
         metric_repo = BodyMetricRepository(db_session)
@@ -494,7 +480,7 @@ class TestBodyMetricRepository:
             id=uuid4(),
             user_id=user.id,
             recorded_by=user.id,
-            recorded_at=datetime(2025, 3, 1, tzinfo=timezone.utc),
+            recorded_at=datetime(2025, 3, 1, tzinfo=UTC),
             weight_kg=Decimal("74.0"),
             body_fat_pct=None,
             muscle_mass_kg=None,
@@ -505,7 +491,7 @@ class TestBodyMetricRepository:
             id=uuid4(),
             user_id=user.id,
             recorded_by=user.id,
-            recorded_at=datetime(2025, 4, 8, tzinfo=timezone.utc),
+            recorded_at=datetime(2025, 4, 8, tzinfo=UTC),
             weight_kg=Decimal("72.5"),
             body_fat_pct=None,
             muscle_mass_kg=None,

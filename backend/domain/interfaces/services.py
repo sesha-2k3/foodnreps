@@ -32,8 +32,6 @@ from uuid import UUID
 from domain.entities.assignment import ClientStaffAssignment
 from domain.entities.diet import DietEntry, DietPlan
 from domain.entities.enums import StaffRole
-from domain.entities.plan import PlanComment, PlanVersion
-from domain.entities.profile import BodyMetric, IntakeProfile
 from domain.entities.user import User
 from domain.entities.workout import (
     ProgramDay,
@@ -43,15 +41,12 @@ from domain.entities.workout import (
     WorkoutProgram,
 )
 
-
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
-class IAuthService(ABC):
 
+class IAuthService(ABC):
     @abstractmethod
-    async def login(
-        self, email: str, password: str
-    ) -> tuple[str, str]:
+    async def login(self, email: str, password: str) -> tuple[str, str]:
         """
         Verify credentials and return (access_token_jwt, refresh_token_jwt).
         Raises UnauthorizedError on invalid credentials.
@@ -81,8 +76,8 @@ class IAuthService(ABC):
 
 # ── Assignment ────────────────────────────────────────────────────────────────
 
-class IAssignmentService(ABC):
 
+class IAssignmentService(ABC):
     @abstractmethod
     async def assign_staff(
         self,
@@ -117,6 +112,7 @@ class IAssignmentService(ABC):
 
 # ── Personal plans (all roles) ────────────────────────────────────────────────
 
+
 class IPersonalPlanService(ABC):
     """
     Manages personal workout and diet plans for any authenticated user.
@@ -124,14 +120,10 @@ class IPersonalPlanService(ABC):
     """
 
     @abstractmethod
-    async def get_personal_workout(
-        self, owner_id: UUID
-    ) -> WorkoutProgram | None: ...
+    async def get_personal_workout(self, owner_id: UUID) -> WorkoutProgram | None: ...
 
     @abstractmethod
-    async def get_personal_diet(
-        self, owner_id: UUID
-    ) -> DietPlan | None: ...
+    async def get_personal_diet(self, owner_id: UUID) -> DietPlan | None: ...
 
     @abstractmethod
     async def create_personal_workout(
@@ -139,25 +131,20 @@ class IPersonalPlanService(ABC):
     ) -> WorkoutProgram: ...
 
     @abstractmethod
-    async def create_personal_diet(
-        self, owner_id: UUID, name: str
-    ) -> DietPlan: ...
+    async def create_personal_diet(self, owner_id: UUID, name: str) -> DietPlan: ...
 
 
 # ── Client ────────────────────────────────────────────────────────────────────
+
 
 class IClientService(ABC):
     """Read-only service for clients viewing their assigned plans."""
 
     @abstractmethod
-    async def get_assigned_workout(
-        self, client_id: UUID
-    ) -> WorkoutProgram | None: ...
+    async def get_assigned_workout(self, client_id: UUID) -> WorkoutProgram | None: ...
 
     @abstractmethod
-    async def get_assigned_diet(
-        self, client_id: UUID
-    ) -> DietPlan | None: ...
+    async def get_assigned_diet(self, client_id: UUID) -> DietPlan | None: ...
 
     @abstractmethod
     async def log_workout(
@@ -176,6 +163,7 @@ class IClientService(ABC):
 
 
 # ── Workout (coach-facing) ────────────────────────────────────────────────────
+
 
 class IWorkoutService(ABC):
     """
@@ -218,12 +206,11 @@ class IWorkoutService(ABC):
     ) -> WorkoutPrescription: ...
 
     @abstractmethod
-    async def get_full_programme(
-        self, program_id: UUID
-    ) -> WorkoutProgram | None: ...
+    async def get_full_programme(self, program_id: UUID) -> WorkoutProgram | None: ...
 
 
 # ── Diet (coach-facing) ───────────────────────────────────────────────────────
+
 
 class IDietService(ABC):
     """
@@ -255,8 +242,8 @@ class IDietService(ABC):
 
 # ── Super admin ───────────────────────────────────────────────────────────────
 
-class ISuperAdminService(ABC):
 
+class ISuperAdminService(ABC):
     @abstractmethod
     async def create_user(
         self,

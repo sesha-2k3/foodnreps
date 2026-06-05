@@ -15,7 +15,7 @@ Design choice — no database, no FastAPI, no fixtures:
 """
 
 import dataclasses
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -23,7 +23,7 @@ from uuid import uuid4
 import pytest
 
 from domain.entities.assignment import ClientStaffAssignment
-from domain.entities.diet import DietEntry, DietPlan
+from domain.entities.diet import DietEntry
 from domain.entities.enums import (
     ActivityAction,
     ExperienceLevel,
@@ -34,68 +34,96 @@ from domain.entities.enums import (
     VideoSource,
 )
 from domain.entities.profile import BodyMetric, IntakeProfile
-from domain.entities.user import RefreshToken, User
+from domain.entities.user import User
 from domain.entities.workout import (
-    ProgramDay,
-    ProgramWeek,
     WorkoutLog,
     WorkoutPrescription,
-    WorkoutProgram,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-NOW = datetime(2025, 4, 8, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2025, 4, 8, 12, 0, 0, tzinfo=UTC)
 TODAY = date(2025, 4, 8)
 
 
 def make_user(**kwargs: Any) -> User:
     defaults: dict[str, Any] = {
-        "id": uuid4(), "email": "test@example.com",
-        "password_hash": "$2b$12$...", "full_name": "Test User",
-        "role": UserRole.CLIENT, "is_active": True,
-        "is_deleted": False, "deleted_at": None,
-        "created_at": NOW, "updated_at": NOW,
+        "id": uuid4(),
+        "email": "test@example.com",
+        "password_hash": "$2b$12$...",
+        "full_name": "Test User",
+        "role": UserRole.CLIENT,
+        "is_active": True,
+        "is_deleted": False,
+        "deleted_at": None,
+        "created_at": NOW,
+        "updated_at": NOW,
     }
     return User(**{**defaults, **kwargs})
 
 
 def make_prescription(**kwargs: Any) -> WorkoutPrescription:
     defaults: dict[str, Any] = {
-        "id": uuid4(), "day_id": uuid4(), "order_index": 1,
-        "exercise_name": "Squat", "warmup_sets": 2, "working_sets": 4,
-        "reps_min": 6, "reps_max": 8, "reps_note": None,
-        "prescribed_load_kg": Decimal("70"), "prescribed_load_text": None,
-        "prescribed_rpe": None, "prescribed_rir": None, "rest_seconds": 180,
-        "instructions": None, "created_at": NOW, "updated_at": NOW,
+        "id": uuid4(),
+        "day_id": uuid4(),
+        "order_index": 1,
+        "exercise_name": "Squat",
+        "warmup_sets": 2,
+        "working_sets": 4,
+        "reps_min": 6,
+        "reps_max": 8,
+        "reps_note": None,
+        "prescribed_load_kg": Decimal("70"),
+        "prescribed_load_text": None,
+        "prescribed_rpe": None,
+        "prescribed_rir": None,
+        "rest_seconds": 180,
+        "instructions": None,
+        "created_at": NOW,
+        "updated_at": NOW,
     }
     return WorkoutPrescription(**{**defaults, **kwargs})
 
 
 def make_log(**kwargs: Any) -> WorkoutLog:
     defaults: dict[str, Any] = {
-        "id": uuid4(), "prescription_id": uuid4(), "client_id": uuid4(),
-        "exercise_name": None, "logged_at": TODAY,
-        "actual_sets": 4, "actual_reps": 6, "actual_load_kg": Decimal("70"),
-        "actual_rpe": Decimal("8.0"), "readiness": 8,
-        "time_taken_seconds": 2580, "client_notes": None,
-        "video_url": None, "video_source": None, "created_at": NOW,
+        "id": uuid4(),
+        "prescription_id": uuid4(),
+        "client_id": uuid4(),
+        "exercise_name": None,
+        "logged_at": TODAY,
+        "actual_sets": 4,
+        "actual_reps": 6,
+        "actual_load_kg": Decimal("70"),
+        "actual_rpe": Decimal("8.0"),
+        "readiness": 8,
+        "time_taken_seconds": 2580,
+        "client_notes": None,
+        "video_url": None,
+        "video_source": None,
+        "created_at": NOW,
     }
     return WorkoutLog(**{**defaults, **kwargs})
 
 
 def make_diet_entry(**kwargs: Any) -> DietEntry:
     defaults: dict[str, Any] = {
-        "id": uuid4(), "plan_id": uuid4(), "food_name": "Chicken breast",
-        "calories": Decimal("165"), "protein_g": Decimal("31"),
-        "fat_g": Decimal("3.6"), "carbs_g": Decimal("0"),
-        "order_index": 10, "created_at": NOW, "updated_at": NOW,
+        "id": uuid4(),
+        "plan_id": uuid4(),
+        "food_name": "Chicken breast",
+        "calories": Decimal("165"),
+        "protein_g": Decimal("31"),
+        "fat_g": Decimal("3.6"),
+        "carbs_g": Decimal("0"),
+        "order_index": 10,
+        "created_at": NOW,
+        "updated_at": NOW,
     }
     return DietEntry(**{**defaults, **kwargs})
 
 
 # ── Enum string values match PostgreSQL schema exactly ────────────────────────
+
 
 class TestEnumValues:
     """
@@ -111,16 +139,16 @@ class TestEnumValues:
     """
 
     def test_user_role_values(self) -> None:
-        assert UserRole.CLIENT.value          == "client"
+        assert UserRole.CLIENT.value == "client"
         assert UserRole.FITNESS_TRAINER.value == "fitness_trainer"
-        assert UserRole.NUTRITIONIST.value    == "nutritionist"
-        assert UserRole.MASTER_COACH.value    == "master_coach"
-        assert UserRole.SUPER_ADMIN.value     == "super_admin"
+        assert UserRole.NUTRITIONIST.value == "nutritionist"
+        assert UserRole.MASTER_COACH.value == "master_coach"
+        assert UserRole.SUPER_ADMIN.value == "super_admin"
 
     def test_staff_role_values(self) -> None:
         assert StaffRole.FITNESS_TRAINER.value == "fitness_trainer"
-        assert StaffRole.NUTRITIONIST.value    == "nutritionist"
-        assert StaffRole.MASTER_COACH.value    == "master_coach"
+        assert StaffRole.NUTRITIONIST.value == "nutritionist"
+        assert StaffRole.MASTER_COACH.value == "master_coach"
 
     def test_staff_role_is_subset_of_user_role(self) -> None:
         """StaffRole values must all exist in UserRole."""
@@ -131,30 +159,30 @@ class TestEnumValues:
             )
 
     def test_fitness_goal_values(self) -> None:
-        assert FitnessGoal.WEIGHT_LOSS.value        == "weight_loss"
-        assert FitnessGoal.MUSCLE_GAIN.value        == "muscle_gain"
-        assert FitnessGoal.ENDURANCE.value          == "endurance"
+        assert FitnessGoal.WEIGHT_LOSS.value == "weight_loss"
+        assert FitnessGoal.MUSCLE_GAIN.value == "muscle_gain"
+        assert FitnessGoal.ENDURANCE.value == "endurance"
         assert FitnessGoal.BODY_RECOMPOSITION.value == "body_recomposition"
-        assert FitnessGoal.GENERAL_HEALTH.value     == "general_health"
+        assert FitnessGoal.GENERAL_HEALTH.value == "general_health"
 
     def test_plan_type_values(self) -> None:
         assert PlanType.WORKOUT.value == "workout"
-        assert PlanType.DIET.value    == "diet"
+        assert PlanType.DIET.value == "diet"
 
     def test_activity_action_values(self) -> None:
-        assert ActivityAction.CREATED.value          == "created"
-        assert ActivityAction.UPDATED.value          == "updated"
-        assert ActivityAction.ENTRY_ADDED.value      == "entry_added"
-        assert ActivityAction.ENTRY_REMOVED.value    == "entry_removed"
-        assert ActivityAction.ENTRY_UPDATED.value    == "entry_updated"
-        assert ActivityAction.COMMENTED.value        == "commented"
-        assert ActivityAction.ACTIVATED.value        == "activated"
-        assert ActivityAction.DEACTIVATED.value      == "deactivated"
+        assert ActivityAction.CREATED.value == "created"
+        assert ActivityAction.UPDATED.value == "updated"
+        assert ActivityAction.ENTRY_ADDED.value == "entry_added"
+        assert ActivityAction.ENTRY_REMOVED.value == "entry_removed"
+        assert ActivityAction.ENTRY_UPDATED.value == "entry_updated"
+        assert ActivityAction.COMMENTED.value == "commented"
+        assert ActivityAction.ACTIVATED.value == "activated"
+        assert ActivityAction.DEACTIVATED.value == "deactivated"
         assert ActivityAction.OVERRIDE_APPLIED.value == "override_applied"
 
     def test_video_source_values(self) -> None:
         assert VideoSource.EXTERNAL_LINK.value == "external_link"
-        assert VideoSource.UPLOAD.value        == "upload"
+        assert VideoSource.UPLOAD.value == "upload"
 
     def test_enums_are_str_subclass(self) -> None:
         """
@@ -170,8 +198,8 @@ class TestEnumValues:
 
 # ── User entity ───────────────────────────────────────────────────────────────
 
-class TestUserEntity:
 
+class TestUserEntity:
     def test_client_is_not_staff(self) -> None:
         user = make_user(role=UserRole.CLIENT)
         assert user.is_staff is False
@@ -189,25 +217,25 @@ class TestUserEntity:
 
     def test_can_write_workout_plans(self) -> None:
         trainer = make_user(role=UserRole.FITNESS_TRAINER)
-        coach   = make_user(role=UserRole.MASTER_COACH)
-        nutri   = make_user(role=UserRole.NUTRITIONIST)
-        client  = make_user(role=UserRole.CLIENT)
+        coach = make_user(role=UserRole.MASTER_COACH)
+        nutri = make_user(role=UserRole.NUTRITIONIST)
+        client = make_user(role=UserRole.CLIENT)
 
         assert trainer.can_write_workout_plans is True
-        assert coach.can_write_workout_plans   is True
-        assert nutri.can_write_workout_plans   is False
-        assert client.can_write_workout_plans  is False
+        assert coach.can_write_workout_plans is True
+        assert nutri.can_write_workout_plans is False
+        assert client.can_write_workout_plans is False
 
     def test_can_write_diet_plans(self) -> None:
-        nutri   = make_user(role=UserRole.NUTRITIONIST)
-        coach   = make_user(role=UserRole.MASTER_COACH)
+        nutri = make_user(role=UserRole.NUTRITIONIST)
+        coach = make_user(role=UserRole.MASTER_COACH)
         trainer = make_user(role=UserRole.FITNESS_TRAINER)
-        client  = make_user(role=UserRole.CLIENT)
+        client = make_user(role=UserRole.CLIENT)
 
-        assert nutri.can_write_diet_plans   is True
-        assert coach.can_write_diet_plans   is True
+        assert nutri.can_write_diet_plans is True
+        assert coach.can_write_diet_plans is True
         assert trainer.can_write_diet_plans is False
-        assert client.can_write_diet_plans  is False
+        assert client.can_write_diet_plans is False
 
     def test_user_is_frozen(self) -> None:
         user = make_user()
@@ -217,22 +245,30 @@ class TestUserEntity:
 
 # ── ClientStaffAssignment entity ──────────────────────────────────────────────
 
-class TestAssignmentEntity:
 
+class TestAssignmentEntity:
     def test_is_active_when_ended_at_is_none(self) -> None:
         assignment = ClientStaffAssignment(
-            id=uuid4(), client_id=uuid4(), staff_id=uuid4(),
+            id=uuid4(),
+            client_id=uuid4(),
+            staff_id=uuid4(),
             staff_role=StaffRole.FITNESS_TRAINER,
-            assigned_at=NOW, ended_at=None, ended_reason=None,
+            assigned_at=NOW,
+            ended_at=None,
+            ended_reason=None,
             assigned_by=uuid4(),
         )
         assert assignment.is_active is True
 
     def test_is_not_active_when_ended_at_is_set(self) -> None:
         assignment = ClientStaffAssignment(
-            id=uuid4(), client_id=uuid4(), staff_id=uuid4(),
+            id=uuid4(),
+            client_id=uuid4(),
+            staff_id=uuid4(),
             staff_role=StaffRole.FITNESS_TRAINER,
-            assigned_at=NOW, ended_at=NOW, ended_reason="replaced",
+            assigned_at=NOW,
+            ended_at=NOW,
+            ended_reason="replaced",
             assigned_by=uuid4(),
         )
         assert assignment.is_active is False
@@ -240,8 +276,8 @@ class TestAssignmentEntity:
 
 # ── WorkoutPrescription entity ────────────────────────────────────────────────
 
-class TestWorkoutPrescriptionEntity:
 
+class TestWorkoutPrescriptionEntity:
     def test_exercise_label_a_for_order_1(self) -> None:
         p = make_prescription(order_index=1)
         assert p.exercise_label == "A"
@@ -260,8 +296,7 @@ class TestWorkoutPrescriptionEntity:
 
     def test_reps_display_open_note(self) -> None:
         p = make_prescription(
-            reps_min=None, reps_max=None,
-            reps_note="max reps — stop when speed drops"
+            reps_min=None, reps_max=None, reps_note="max reps — stop when speed drops"
         )
         assert p.reps_display == "max reps — stop when speed drops"
 
@@ -279,6 +314,7 @@ class TestWorkoutPrescriptionEntity:
 
 
 # ── WorkoutLog entity — tonnage ───────────────────────────────────────────────
+
 
 class TestWorkoutLogTonnage:
     """
@@ -332,8 +368,8 @@ class TestWorkoutLogTonnage:
 
 # ── DietEntry entity ──────────────────────────────────────────────────────────
 
-class TestDietEntryEntity:
 
+class TestDietEntryEntity:
     def test_macro_derived_calories_protein_heavy(self) -> None:
         """protein×4 + fat×9 + carbs×4"""
         entry = make_diet_entry(
@@ -356,7 +392,7 @@ class TestDietEntryEntity:
     def test_stored_calories_independent_of_macro_derivation(self) -> None:
         """Coach can set calories different from the macro-derived value."""
         entry = make_diet_entry(
-            calories=Decimal("165"),    # what the label says
+            calories=Decimal("165"),  # what the label says
             protein_g=Decimal("31"),
             fat_g=Decimal("3.6"),
             carbs_g=Decimal("0"),
@@ -369,62 +405,84 @@ class TestDietEntryEntity:
 
 # ── BodyMetric entity ─────────────────────────────────────────────────────────
 
-class TestBodyMetricEntity:
 
+class TestBodyMetricEntity:
     def test_valid_with_weight_only(self) -> None:
         metric = BodyMetric(
-            id=uuid4(), user_id=uuid4(), recorded_by=uuid4(),
-            recorded_at=NOW, weight_kg=Decimal("73.5"),
-            body_fat_pct=None, muscle_mass_kg=None,
-            notes=None, created_at=NOW,
+            id=uuid4(),
+            user_id=uuid4(),
+            recorded_by=uuid4(),
+            recorded_at=NOW,
+            weight_kg=Decimal("73.5"),
+            body_fat_pct=None,
+            muscle_mass_kg=None,
+            notes=None,
+            created_at=NOW,
         )
         assert metric.weight_kg == Decimal("73.5")
 
     def test_valid_with_all_measurements(self) -> None:
         metric = BodyMetric(
-            id=uuid4(), user_id=uuid4(), recorded_by=uuid4(),
-            recorded_at=NOW, weight_kg=Decimal("73.5"),
-            body_fat_pct=Decimal("18.5"), muscle_mass_kg=Decimal("35.2"),
-            notes="DEXA scan result", created_at=NOW,
+            id=uuid4(),
+            user_id=uuid4(),
+            recorded_by=uuid4(),
+            recorded_at=NOW,
+            weight_kg=Decimal("73.5"),
+            body_fat_pct=Decimal("18.5"),
+            muscle_mass_kg=Decimal("35.2"),
+            notes="DEXA scan result",
+            created_at=NOW,
         )
         assert metric.body_fat_pct == Decimal("18.5")
 
     def test_rejects_all_none_measurements(self) -> None:
         with pytest.raises(ValueError, match="at least one measurement"):
             BodyMetric(
-                id=uuid4(), user_id=uuid4(), recorded_by=uuid4(),
-                recorded_at=NOW, weight_kg=None,
-                body_fat_pct=None, muscle_mass_kg=None,
-                notes=None, created_at=NOW,
+                id=uuid4(),
+                user_id=uuid4(),
+                recorded_by=uuid4(),
+                recorded_at=NOW,
+                weight_kg=None,
+                body_fat_pct=None,
+                muscle_mass_kg=None,
+                notes=None,
+                created_at=NOW,
             )
 
 
 # ── IntakeProfile — tuple immutability ────────────────────────────────────────
 
-class TestIntakeProfileEntity:
 
+class TestIntakeProfileEntity:
     def test_injuries_stored_as_tuple(self) -> None:
         profile = IntakeProfile(
-            id=uuid4(), client_id=uuid4(),
+            id=uuid4(),
+            client_id=uuid4(),
             fitness_goal=FitnessGoal.MUSCLE_GAIN,
             experience_level=ExperienceLevel.INTERMEDIATE,
             injuries=("lower_back", "left_knee"),
             equipment=("barbell", "pull_up_bar"),
-            dietary_notes=None, target_weight_kg=None,
+            dietary_notes=None,
+            target_weight_kg=None,
             current_weight_kg=Decimal("82.0"),
-            completed_at=NOW, updated_at=NOW,
+            completed_at=NOW,
+            updated_at=NOW,
         )
         assert isinstance(profile.injuries, tuple)
         assert "lower_back" in profile.injuries
 
     def test_empty_injuries_is_valid(self) -> None:
         profile = IntakeProfile(
-            id=uuid4(), client_id=uuid4(),
+            id=uuid4(),
+            client_id=uuid4(),
             fitness_goal=FitnessGoal.GENERAL_HEALTH,
             experience_level=ExperienceLevel.BEGINNER,
-            injuries=(), equipment=(),
-            dietary_notes=None, target_weight_kg=None,
+            injuries=(),
+            equipment=(),
+            dietary_notes=None,
+            target_weight_kg=None,
             current_weight_kg=None,
-            completed_at=NOW, updated_at=NOW,
+            completed_at=NOW,
+            updated_at=NOW,
         )
         assert profile.injuries == ()

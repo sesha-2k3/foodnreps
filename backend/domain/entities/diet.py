@@ -31,20 +31,21 @@ class DietPlan:
         "Cutting Phase", "Maintenance", "Muscle Gain Protocol".
         Without a name, distinguishing plans requires reading created_at.
     """
-    id:               UUID
-    owner_id:         UUID
-    created_by_id:    UUID
-    name:             str
-    is_active:        bool
-    is_personal:      bool
-    is_template:      bool
-    coach_notes:      str | None
-    version:          int
+
+    id: UUID
+    owner_id: UUID
+    created_by_id: UUID
+    name: str
+    is_active: bool
+    is_personal: bool
+    is_template: bool
+    coach_notes: str | None
+    version: int
     last_modified_by: UUID | None
     last_modified_at: datetime | None
-    override_reason:  str | None
-    created_at:       datetime
-    updated_at:       datetime
+    override_reason: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 @dataclass(frozen=True)
@@ -73,16 +74,17 @@ class DietEntry:
         meaningful context for the client. Gaps are allowed (10, 20, 30) so
         reordering two items only requires updating two rows.
     """
-    id:          UUID
-    plan_id:     UUID
-    food_name:   str
-    calories:    Decimal
-    protein_g:   Decimal
-    fat_g:       Decimal
-    carbs_g:     Decimal
+
+    id: UUID
+    plan_id: UUID
+    food_name: str
+    calories: Decimal
+    protein_g: Decimal
+    fat_g: Decimal
+    carbs_g: Decimal
     order_index: int
-    created_at:  datetime
-    updated_at:  datetime
+    created_at: datetime
+    updated_at: datetime
 
     @property
     def macro_derived_calories(self) -> Decimal:
@@ -95,6 +97,6 @@ class DietEntry:
         """
         return (
             (self.protein_g * Decimal(4))
-            + (self.fat_g   * Decimal(9))
+            + (self.fat_g * Decimal(9))
             + (self.carbs_g * Decimal(4))
         )

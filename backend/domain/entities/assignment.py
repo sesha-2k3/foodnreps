@@ -36,14 +36,15 @@ class ClientStaffAssignment:
     A coaching relationship between one client and one staff member.
     Maps to the `client_staff_assignments` table.
     """
-    id:           UUID
-    client_id:    UUID
-    staff_id:     UUID
-    staff_role:   StaffRole
-    assigned_at:  datetime
-    ended_at:     datetime | None
+
+    id: UUID
+    client_id: UUID
+    staff_id: UUID
+    staff_role: StaffRole
+    assigned_at: datetime
+    ended_at: datetime | None
     ended_reason: str | None
-    assigned_by:  UUID            # always a super_admin user_id
+    assigned_by: UUID  # always a super_admin user_id
 
     @property
     def is_active(self) -> bool:

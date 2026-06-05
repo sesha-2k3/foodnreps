@@ -22,4 +22,5 @@ from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     """Root base class for all SQLAlchemy ORM models in Food 'n' Reps."""
+
     pass

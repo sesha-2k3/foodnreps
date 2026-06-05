@@ -71,10 +71,9 @@ class UserRepository(IUserRepository):
         return self._to_entity(model) if model else None
 
     async def get_by_email(self, email: str) -> User | None:
-        stmt = (
-            select(UserModel).where(
-                UserModel.email == email, UserModel.is_deleted == False
-            )  # noqa: E712
+        stmt = select(UserModel).where(
+            UserModel.email == email,
+            UserModel.is_deleted == False,  # noqa: E712
         )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()

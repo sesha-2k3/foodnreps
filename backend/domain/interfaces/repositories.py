@@ -44,11 +44,10 @@ from domain.entities.workout import (
     WorkoutProgram,
 )
 
-
 # ── User ──────────────────────────────────────────────────────────────────────
 
-class IUserRepository(ABC):
 
+class IUserRepository(ABC):
     @abstractmethod
     async def get_by_id(self, user_id: UUID) -> User | None: ...
 
@@ -73,8 +72,8 @@ class IUserRepository(ABC):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
-class IRefreshTokenRepository(ABC):
 
+class IRefreshTokenRepository(ABC):
     @abstractmethod
     async def get_by_token_id(self, token_id: UUID) -> RefreshToken | None: ...
 
@@ -97,8 +96,8 @@ class IRefreshTokenRepository(ABC):
 
 # ── Assignment ────────────────────────────────────────────────────────────────
 
-class IClientStaffAssignmentRepository(ABC):
 
+class IClientStaffAssignmentRepository(ABC):
     @abstractmethod
     async def get_active_for_client(
         self, client_id: UUID
@@ -114,9 +113,7 @@ class IClientStaffAssignmentRepository(ABC):
         ...
 
     @abstractmethod
-    async def get_active_for_staff(
-        self, staff_id: UUID
-    ) -> list[ClientStaffAssignment]:
+    async def get_active_for_staff(self, staff_id: UUID) -> list[ClientStaffAssignment]:
         """All clients currently assigned to a staff member."""
         ...
 
@@ -145,8 +142,8 @@ class IClientStaffAssignmentRepository(ABC):
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 
-class IIntakeProfileRepository(ABC):
 
+class IIntakeProfileRepository(ABC):
     @abstractmethod
     async def get_by_client_id(self, client_id: UUID) -> IntakeProfile | None: ...
 
@@ -157,11 +154,8 @@ class IIntakeProfileRepository(ABC):
 
 
 class IBodyMetricRepository(ABC):
-
     @abstractmethod
-    async def list_for_user(
-        self, user_id: UUID, limit: int = 50
-    ) -> list[BodyMetric]:
+    async def list_for_user(self, user_id: UUID, limit: int = 50) -> list[BodyMetric]:
         """Most recent measurements first."""
         ...
 
@@ -173,15 +167,13 @@ class IBodyMetricRepository(ABC):
 
 # ── Workout programme ─────────────────────────────────────────────────────────
 
-class IWorkoutProgramRepository(ABC):
 
+class IWorkoutProgramRepository(ABC):
     @abstractmethod
     async def get_by_id(self, program_id: UUID) -> WorkoutProgram | None: ...
 
     @abstractmethod
-    async def get_active_by_owner(
-        self, owner_id: UUID
-    ) -> WorkoutProgram | None:
+    async def get_active_by_owner(self, owner_id: UUID) -> WorkoutProgram | None:
         """The single active non-template programme for an owner."""
         ...
 
@@ -200,11 +192,8 @@ class IWorkoutProgramRepository(ABC):
 
 
 class IProgramWeekRepository(ABC):
-
     @abstractmethod
-    async def list_by_program(
-        self, program_id: UUID
-    ) -> list[ProgramWeek]:
+    async def list_by_program(self, program_id: UUID) -> list[ProgramWeek]:
         """All weeks for a programme, ordered by week_number."""
         ...
 
@@ -216,7 +205,6 @@ class IProgramWeekRepository(ABC):
 
 
 class IProgramDayRepository(ABC):
-
     @abstractmethod
     async def list_by_week(self, week_id: UUID) -> list[ProgramDay]:
         """All days for a week, ordered by day_number."""
@@ -230,30 +218,22 @@ class IProgramDayRepository(ABC):
 
 
 class IWorkoutPrescriptionRepository(ABC):
+    @abstractmethod
+    async def get_by_id(self, prescription_id: UUID) -> WorkoutPrescription | None: ...
 
     @abstractmethod
-    async def get_by_id(
-        self, prescription_id: UUID
-    ) -> WorkoutPrescription | None: ...
-
-    @abstractmethod
-    async def list_by_day(
-        self, day_id: UUID
-    ) -> list[WorkoutPrescription]:
+    async def list_by_day(self, day_id: UUID) -> list[WorkoutPrescription]:
         """All prescriptions for a day, ordered by order_index."""
         ...
 
     @abstractmethod
-    async def save(
-        self, prescription: WorkoutPrescription
-    ) -> WorkoutPrescription: ...
+    async def save(self, prescription: WorkoutPrescription) -> WorkoutPrescription: ...
 
     @abstractmethod
     async def delete(self, prescription_id: UUID) -> None: ...
 
 
 class IWorkoutLogRepository(ABC):
-
     @abstractmethod
     async def list_by_client(
         self, client_id: UUID, limit: int = 50
@@ -262,9 +242,7 @@ class IWorkoutLogRepository(ABC):
         ...
 
     @abstractmethod
-    async def list_by_prescription(
-        self, prescription_id: UUID
-    ) -> list[WorkoutLog]:
+    async def list_by_prescription(self, prescription_id: UUID) -> list[WorkoutLog]:
         """All logs for a specific prescription (coach review view)."""
         ...
 
@@ -276,15 +254,13 @@ class IWorkoutLogRepository(ABC):
 
 # ── Diet plan ─────────────────────────────────────────────────────────────────
 
-class IDietPlanRepository(ABC):
 
+class IDietPlanRepository(ABC):
     @abstractmethod
     async def get_by_id(self, plan_id: UUID) -> DietPlan | None: ...
 
     @abstractmethod
-    async def get_active_by_owner(
-        self, owner_id: UUID
-    ) -> DietPlan | None: ...
+    async def get_active_by_owner(self, owner_id: UUID) -> DietPlan | None: ...
 
     @abstractmethod
     async def list_by_owner(self, owner_id: UUID) -> list[DietPlan]: ...
@@ -298,7 +274,6 @@ class IDietPlanRepository(ABC):
 
 
 class IDietEntryRepository(ABC):
-
     @abstractmethod
     async def get_by_id(self, entry_id: UUID) -> DietEntry | None: ...
 
@@ -316,8 +291,8 @@ class IDietEntryRepository(ABC):
 
 # ── Plan cross-cutting ────────────────────────────────────────────────────────
 
-class IPlanVersionRepository(ABC):
 
+class IPlanVersionRepository(ABC):
     @abstractmethod
     async def list_by_plan(
         self, plan_type: PlanType, plan_id: UUID
@@ -332,7 +307,6 @@ class IPlanVersionRepository(ABC):
 
 
 class IPlanCommentRepository(ABC):
-
     @abstractmethod
     async def list_by_plan(
         self, plan_type: PlanType, plan_id: UUID
@@ -350,7 +324,6 @@ class IPlanCommentRepository(ABC):
 
 
 class IPlanActivityLogRepository(ABC):
-
     @abstractmethod
     async def list_by_plan(
         self,
