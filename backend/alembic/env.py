@@ -58,6 +58,7 @@ if config.config_file_name is not None:
 
 # ── Offline mode (no DB connection, generates SQL script) ─────────────────────
 
+
 def run_migrations_offline() -> None:
     """
     Generates migration SQL without connecting to the database.
@@ -71,14 +72,15 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,          # detect column type changes
-        compare_server_default=True, # detect default value changes
+        compare_type=True,  # detect column type changes
+        compare_server_default=True,  # detect default value changes
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 # ── Online mode (connects to DB and runs migrations) ──────────────────────────
+
 
 def do_run_migrations(connection: Connection) -> None:
     context.configure(
