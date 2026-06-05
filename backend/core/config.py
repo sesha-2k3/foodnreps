@@ -14,6 +14,7 @@ Design choice — Settings as a module-level singleton:
 """
 
 from pathlib import Path
+
 from pydantic import PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
