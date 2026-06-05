@@ -15,6 +15,7 @@ dependencies = [
     "asyncpg>=0.29",           # async PostgreSQL driver
 
     # Validation & settings
+    "email-validator>=2.0",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
 
