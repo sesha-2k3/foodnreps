@@ -38,6 +38,7 @@ from uuid import UUID, uuid4
 
 from application.factories.workout_factory import WorkoutFactory
 from core.exceptions import ForbiddenError, NotFoundError
+from domain.entities.diet import DietPlan
 from domain.entities.enums import ActivityAction, PlanType, StaffRole
 from domain.entities.plan import PlanActivityLog
 from domain.entities.workout import (
@@ -267,7 +268,9 @@ class FitnessTrainerService:
 
     # ── Read — diet plans (cross-domain visibility, read only) ────────────────
 
-    async def get_client_diet_plan(self, trainer_id: UUID, client_id: UUID) -> object:
+    async def get_client_diet_plan(
+        self, trainer_id: UUID, client_id: UUID
+    ) -> DietPlan | None:
         """
         Read the client's active diet plan (no write access).
         Trainers can read diet plans to understand the full coaching context.

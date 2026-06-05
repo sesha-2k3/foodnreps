@@ -30,7 +30,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import bcrypt
-from jose import JWTError, jwt
+from jose import JWTError, jwt  # type: ignore[import-untyped]
 
 from core.config import settings
 from core.exceptions import UnauthorizedError
@@ -84,7 +84,9 @@ def create_access_token(user_id: UUID, role: str) -> str:
         "exp": expires,
         "type": "access",
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return str(
+        jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    )
 
 
 def create_refresh_token_jwt(user_id: UUID, token_id: UUID) -> str:
@@ -101,14 +103,18 @@ def create_refresh_token_jwt(user_id: UUID, token_id: UUID) -> str:
     A database breach therefore never exposes a valid, usable token — only
     an identifier that is useless without the signing secret.
     """
-    expires = datetime.now(tz=UTC) + timedelta(days=settings.refresh_token_expire_days)
+    expires = datetime.now(tz=UTC) + timedelta(
+        days=settings.refresh_token_expire_days
+    )
     payload = {
         "sub": str(user_id),
         "jti": str(token_id),
         "exp": expires,
         "type": "refresh",
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return str(
+        jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    )
 
 
 # ── Token decoding ────────────────────────────────────────────────────────────

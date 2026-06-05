@@ -153,14 +153,17 @@ class TestRefresh:
         token_repo.get_by_token_id.return_value = revoked
         token_id = uuid4()
 
-        with patch(
-            f"{PATCH_BASE}.decode_token",
-            return_value={
-                "type": "refresh",
-                "jti": str(token_id),
-                "sub": str(user.id),
-            },
-        ), pytest.raises(UnauthorizedError, match="revoked"):
+        with (
+            patch(
+                f"{PATCH_BASE}.decode_token",
+                return_value={
+                    "type": "refresh",
+                    "jti": str(token_id),
+                    "sub": str(user.id),
+                },
+            ),
+            pytest.raises(UnauthorizedError, match="revoked"),
+        ):
             await service.refresh("bad.token")
 
     async def test_raises_on_non_refresh_token_type(self, service: AuthService) -> None:
@@ -184,14 +187,17 @@ class TestRefresh:
         token_repo.get_by_token_id.return_value = token
         user_repo.get_by_id.return_value = user
 
-        with patch(
-            f"{PATCH_BASE}.decode_token",
-            return_value={
-                "type": "refresh",
-                "jti": str(token.token_id),
-                "sub": str(user.id),
-            },
-        ), pytest.raises(InactiveUserError):
+        with (
+            patch(
+                f"{PATCH_BASE}.decode_token",
+                return_value={
+                    "type": "refresh",
+                    "jti": str(token.token_id),
+                    "sub": str(user.id),
+                },
+            ),
+            pytest.raises(InactiveUserError),
+        ):
             await service.refresh("any.token")
 
 

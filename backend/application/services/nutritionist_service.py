@@ -22,6 +22,7 @@ from core.exceptions import ForbiddenError, NotFoundError
 from domain.entities.diet import DietEntry, DietPlan
 from domain.entities.enums import ActivityAction, PlanType, StaffRole
 from domain.entities.plan import PlanActivityLog
+from domain.entities.workout import WorkoutProgram
 from domain.interfaces.repositories import (
     IClientStaffAssignmentRepository,
     IDietEntryRepository,
@@ -174,7 +175,7 @@ class NutritionistService:
 
     async def get_client_workout_programme(
         self, nutritionist_id: UUID, client_id: UUID
-    ) -> object:
+    ) -> WorkoutProgram | None:
         """
         Read the client's active workout programme (no write access).
         Nutritionists can read workout programmes to calibrate calorie targets.

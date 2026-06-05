@@ -11,7 +11,7 @@ The conflict matrix is the critical invariant tested exhaustively here:
 """
 
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -142,15 +142,10 @@ class TestAssignStaffSuccess:
         )
 
         # Old assignment closed, new one saved
-        assignment_repo.end_assignment.assert_called_once_with(
-            assignment_id=old_assignment.id,
-            ended_at=pytest.approx(  # type: ignore[call-overload]
-                old_assignment.assigned_at, abs=5
-            )
-            if False
-            else old_assignment.id,  # just verify it was called
-            ended_reason="replaced",
-        ) if False else assignment_repo.end_assignment.assert_called_once()
+        assignment_repo.end_assignment.assert_called_once()
+        call_kwargs = assignment_repo.end_assignment.call_args.kwargs
+        assert call_kwargs["assignment_id"] == old_assignment.id
+        assert call_kwargs["ended_reason"] == "replaced"
         assignment_repo.save.assert_called_once()
 
 
@@ -162,11 +157,11 @@ class TestAssignStaffConflicts:
         self,
         user_repo: AsyncMock,
         assignment_repo: AsyncMock,
-        client_id: uuid4,
+        client_id: UUID,
         incoming_role: StaffRole,
         existing_role: StaffRole,
         incoming_user_role: UserRole,
-    ) -> tuple[uuid4, uuid4]:
+    ) -> tuple[UUID, UUID]:
         incoming_id = uuid4()
         client = make_user(id=client_id, role=UserRole.CLIENT)
         incoming = make_user(id=incoming_id, role=incoming_user_role)

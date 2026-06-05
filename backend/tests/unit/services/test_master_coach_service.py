@@ -11,7 +11,7 @@ Key invariants:
 
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -99,7 +99,7 @@ def service(
 
 
 def setup_valid_assignment(
-    assignment_repo: AsyncMock, coach_id: uuid4, client_id: uuid4
+    assignment_repo: AsyncMock, coach_id: UUID, client_id: UUID
 ) -> None:
     assignment = make_assignment(client_id, coach_id, StaffRole.MASTER_COACH)
     assignment_repo.get_active_by_role_for_client.return_value = assignment

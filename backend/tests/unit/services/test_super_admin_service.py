@@ -170,14 +170,9 @@ class TestDeactivateUser:
 
         saved = user_repo.save.call_args[0][0]
         assert saved.is_active is False
-        token_repo.revoke_all_for_user.assert_called_once_with(
-            user_id=user.id,
-            revoked_at=pytest.approx(  # type: ignore[call-overload]
-                saved.updated_at, abs=1
-            )
-            if False
-            else token_repo.revoke_all_for_user.call_args.kwargs["user_id"],
-        ) if False else token_repo.revoke_all_for_user.assert_called_once()
+        token_repo.revoke_all_for_user.assert_called_once()
+        call_kwargs = token_repo.revoke_all_for_user.call_args.kwargs
+        assert call_kwargs["user_id"] == user.id
 
     async def test_deactivate_is_idempotent(
         self,

@@ -1,11 +1,20 @@
 """
 Food 'n' Reps — FastAPI application entry point.
 
-This file wires together the application: middleware, routers, lifespan.
-It intentionally contains no business logic — that belongs in the service layer.
+Sprint 0: Health check, CORS, lifespan.
+Sprint 4: Exception handlers registered, all routers mounted.
 
-Sprint 0: Health check only. Routers are registered as each sprint completes.
-Sprint 4: Uncomment router registrations as routes are built.
+Design choice — single FoodNRepsError exception handler:
+    One handler catches every domain exception. A dict maps exception type
+    → HTTP status. Routes write no try/except — they call services and the
+    domain exceptions propagate up to this handler automatically. Adding a
+    new exception subclass requires one line in STATUS_MAP.
+
+Design choice — DomainValidationError alias:
+    core.exceptions.ValidationError is aliased here because pydantic.ValidationError
+    is also imported by FastAPI, which registers its own handler for it (HTTP 422).
+    Using the same name would shadow one or the other. The alias makes the
+    distinction explicit: DomainValidationError is ours, pydantic's is separate.
 """
 
 from collections.abc import AsyncGenerator
@@ -13,10 +22,50 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from starlette.requests import Request
 
 from core.config import settings
+from core.exceptions import (
+    AssignmentConflictError,
+    ConflictError,
+    FoodNRepsError,
+    ForbiddenError,
+    InactiveUserError,
+    NotFoundError,
+    PlanVersionConflictError,
+    SelfAssignmentError,
+    StaffDomainViolationError,
+    UnauthorizedError,
+)
+from core.exceptions import ValidationError as DomainValidationError
 from infrastructure.db.session import AsyncSessionLocal, engine
+from presentation.api.routes import (
+    admin,
+    auth,
+    client,
+    coach,
+    nutritionist,
+    personal,
+    trainer,
+)
+
+# ── Exception status map ──────────────────────────────────────────────────────
+
+_STATUS_MAP: dict[type[FoodNRepsError], int] = {
+    NotFoundError: 404,
+    UnauthorizedError: 401,
+    InactiveUserError: 401,
+    ForbiddenError: 403,
+    StaffDomainViolationError: 403,
+    ConflictError: 409,
+    AssignmentConflictError: 409,
+    PlanVersionConflictError: 409,
+    DomainValidationError: 422,
+    SelfAssignmentError: 400,
+}
+
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
@@ -24,17 +73,10 @@ from infrastructure.db.session import AsyncSessionLocal, engine
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    Application startup and shutdown lifecycle.
-
-    Startup: nothing to initialise yet (connection pool is lazy).
+    Startup: nothing to initialise (connection pool is lazy).
     Shutdown: dispose the engine to cleanly close all pool connections.
-
-    Design choice: We do not eagerly create the connection pool at startup.
-    SQLAlchemy's async engine creates connections lazily on first use.
-    This keeps startup fast and avoids connection errors if the DB is
-    temporarily unreachable at deploy time.
     """
-    yield  # application runs here
+    yield
     await engine.dispose()
 
 
@@ -48,7 +90,6 @@ app = FastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
-    # Swagger UI available at /docs, ReDoc at /redoc
 )
 
 
@@ -63,17 +104,44 @@ app.add_middleware(
 )
 
 
-# ── Routers (registered as sprints complete) ──────────────────────────────────
-#
-# Sprint 4 — uncomment these as routes are built:
-#
-# from presentation.api.routes import auth, client, trainer, nutritionist, coach, admin
-# app.include_router(auth.router,         prefix="/auth",         tags=["Auth"])
-# app.include_router(client.router,       prefix="/client",       tags=["Client"])
-# app.include_router(trainer.router,      prefix="/trainer",      tags=["Trainer"])
-# app.include_router(nutritionist.router, prefix="/nutritionist", tags=["Nutritionist"])
-# app.include_router(coach.router,        prefix="/coach",        tags=["Coach"])
-# app.include_router(admin.router,        prefix="/admin",        tags=["Admin"])
+# ── Domain exception handler ──────────────────────────────────────────────────
+
+
+@app.exception_handler(FoodNRepsError)
+async def domain_exception_handler(
+    request: Request, exc: FoodNRepsError
+) -> JSONResponse:
+    """
+    Translate every domain exception to the correct HTTP status code.
+
+    Lookup order: exact type match first, then base classes via next().
+    If a subclass is not in _STATUS_MAP, the base class match applies.
+    FoodNRepsError itself (unmapped) → 400.
+    """
+    status = _STATUS_MAP.get(type(exc))
+    if status is None:
+        # Walk MRO to find the closest mapped parent class
+        for klass in type(exc).__mro__:
+            if klass in _STATUS_MAP:
+                status = _STATUS_MAP[klass]
+                break
+        else:
+            status = 400
+    return JSONResponse(
+        status_code=status,
+        content={"detail": str(exc)},
+    )
+
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+app.include_router(client.router, prefix="/client", tags=["Client"])
+app.include_router(trainer.router, prefix="/trainer", tags=["Trainer"])
+app.include_router(nutritionist.router, prefix="/nutritionist", tags=["Nutritionist"])
+app.include_router(coach.router, prefix="/coach", tags=["Master Coach"])
+app.include_router(admin.router, prefix="/admin", tags=["Super Admin"])
+app.include_router(personal.router, prefix="/personal", tags=["Personal Plans"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
@@ -82,14 +150,8 @@ app.add_middleware(
 @app.get("/health", tags=["Health"], summary="Health check with DB connectivity")
 async def health_check() -> dict[str, str]:
     """
-    Returns application health status and database connectivity.
-
-    Design choice: The health check actively tests the DB connection
-    (SELECT 1) rather than just returning a static 200. This makes it
-    usable as a Docker HEALTHCHECK and a Kubernetes readiness probe —
-    it distinguishes "app is running" from "app can serve requests".
-
-    Used by: Docker Compose healthcheck, future load balancer probes.
+    Active DB connectivity check — not just a static 200.
+    Used by Docker HEALTHCHECK and future load balancer probes.
     """
     try:
         async with AsyncSessionLocal() as session:
