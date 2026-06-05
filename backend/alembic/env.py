@@ -33,12 +33,19 @@ from alembic import context
 # Import application settings — prepend_sys_path = . in alembic.ini
 # adds backend/ to sys.path so this import resolves correctly.
 from core.config import settings
+from infrastructure.db import models as _models  # noqa: F401  registers all models
 
 # ── Sprint 2: uncomment and replace target_metadata ──────────────────────────
 # from infrastructure.db.models import Base
 # target_metadata = Base.metadata
 # ─────────────────────────────────────────────────────────────────────────────
-target_metadata = None  # updated in Sprint 2
+# All ORM models must be imported so SQLAlchemy registers them on Base.metadata.
+# autogenerate compares Base.metadata against the live DB — if a model is not
+# imported here, its table will not appear in generated migrations.
+from infrastructure.db.base import Base  # noqa: F401
+
+target_metadata = Base.metadata
+# target_metadata = None  # updated in Sprint 2
 
 # Load the Alembic config and inject our database URL
 config = context.config
