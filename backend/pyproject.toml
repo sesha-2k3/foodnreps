@@ -1,5 +1,5 @@
 [project]
-name = "foodnreps"
+name = "food-n-reps"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "Multi-role fitness coaching platform"
@@ -51,8 +51,9 @@ filterwarnings = [
 [tool.mypy]
 strict = true
 python_version = "3.12"
-plugins = ["sqlalchemy.ext.mypy.plugin"]
+plugins = ["sqlalchemy.ext.mypy.plugin", "pydantic.mypy"]
 exclude = ["alembic/"]         # Alembic-generated files are not type-checked
+explicit_package_bases = true
 
 # Relax strict rules inside the test suite only
 [[tool.mypy.overrides]]
