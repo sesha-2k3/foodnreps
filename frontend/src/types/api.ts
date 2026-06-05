@@ -13,6 +13,7 @@
  *   load_display ("70 kg", "BW") are computed by the backend Pydantic schema
  *   from the domain entity @property methods. The frontend receives them ready
  *   to render — no display transformation logic is duplicated here.
+ * 
  *
  * Design choice — logs nested under prescriptions in the workout response:
  *   A separate GET /logs endpoint would add a second network round-trip for
