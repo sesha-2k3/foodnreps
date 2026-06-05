@@ -366,7 +366,7 @@ wheels = [
 ]
 
 [[package]]
-name = "foodnreps"
+name = "food-n-reps"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
