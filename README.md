@@ -114,7 +114,7 @@ See the companion documents:
 | S3 — Application layer | Application | Complete |
 | S4 — Presentation layer | Presentation | Complete |
 | S5 — Frontend foundation | Frontend | Complete |
-| S6 — FitnessTable component | Frontend | . |
+| S6 — FitnessTable component | Frontend | Complete |
 | S7 — Client views | Frontend | . |
 | S8 — Coach + trainer views | Frontend | . |
 | S9 — Admin views | Frontend | . |
