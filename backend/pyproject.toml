@@ -82,6 +82,8 @@ select = [
 ]
 ignore = [
     "E501",  # line too long — handled by ruff format
+    "B008",
+    "TC003",
 ]
 
 [tool.ruff.lint.isort]
