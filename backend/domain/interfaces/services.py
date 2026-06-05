@@ -16,27 +16,25 @@ Design choice — minimal surface area:
     implementation. This keeps the interface stable even as the
     implementation evolves.
 
-Sprint 3 will implement all of these in application/services/.
-The stubs below define the contracts those implementations must satisfy.
+Sprint 3 correction — IAuthService.refresh return type:
+    The original interface declared refresh() -> str (access token only).
+    Sprint 3 implementation revealed that the route handler in Sprint 4
+    also needs to set a new httpOnly refresh token cookie on every refresh
+    call. Both tokens must come from the service. The correct return type
+    is tuple[str, str] = (new_access_token_jwt, new_refresh_token_jwt),
+    matching the login() signature. Updated here before Sprint 4 is built.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
 from domain.entities.assignment import ClientStaffAssignment
 from domain.entities.diet import DietEntry, DietPlan
-from domain.entities.enums import (
-    ExperienceLevel,
-    FitnessGoal,
-    PlanType,
-    StaffRole,
-)
-from domain.entities.plan import PlanActivityLog, PlanComment, PlanVersion
+from domain.entities.enums import StaffRole
+from domain.entities.plan import PlanComment, PlanVersion
 from domain.entities.profile import BodyMetric, IntakeProfile
-from domain.entities.user import RefreshToken, User
-from domain.entities.diet import DietEntry, DietPlan
+from domain.entities.user import User
 from domain.entities.workout import (
     ProgramDay,
     ProgramWeek,
@@ -55,24 +53,29 @@ class IAuthService(ABC):
         self, email: str, password: str
     ) -> tuple[str, str]:
         """
-        Verify credentials and return (access_token, refresh_token).
+        Verify credentials and return (access_token_jwt, refresh_token_jwt).
         Raises UnauthorizedError on invalid credentials.
         Raises InactiveUserError if the account is deactivated.
         """
         ...
 
     @abstractmethod
-    async def refresh(self, refresh_token: str) -> str:
+    async def refresh(self, refresh_token: str) -> tuple[str, str]:
         """
-        Validate the refresh token and return a new access token.
-        Rotates the refresh token (old one revoked, new one issued).
+        Validate the refresh token, rotate it, and return
+        (new_access_token_jwt, new_refresh_token_jwt).
+
+        Sprint 3 correction: original interface declared -> str (access token
+        only). The Sprint 4 route handler also needs the new refresh token to
+        set as an httpOnly cookie. Both tokens are returned.
+
         Raises UnauthorizedError if the token is invalid or revoked.
         """
         ...
 
     @abstractmethod
     async def logout(self, refresh_token: str) -> None:
-        """Revoke the refresh token immediately."""
+        """Revoke the refresh token immediately. Idempotent."""
         ...
 
 
@@ -95,6 +98,7 @@ class IAssignmentService(ABC):
         - fitness_trainer conflicts with any existing master_coach
         - nutritionist conflicts with any existing master_coach
         Raises AssignmentConflictError on violations.
+        Raises SelfAssignmentError if client_id == staff_id.
         """
         ...
 
@@ -103,7 +107,12 @@ class IAssignmentService(ABC):
         self,
         assignment_id: UUID,
         ended_reason: str,
-    ) -> None: ...
+    ) -> None:
+        """
+        Close an active assignment. Called only by SuperAdminService.
+        Raises NotFoundError if assignment_id does not exist.
+        """
+        ...
 
 
 # ── Personal plans (all roles) ────────────────────────────────────────────────
@@ -171,7 +180,7 @@ class IClientService(ABC):
 class IWorkoutService(ABC):
     """
     Manages workout programmes on behalf of coaching staff.
-    Fitness trainers and master coaches use this service.
+    Implemented by FitnessTrainerService and MasterCoachService.
     """
 
     @abstractmethod
@@ -219,7 +228,7 @@ class IWorkoutService(ABC):
 class IDietService(ABC):
     """
     Manages diet plans on behalf of coaching staff.
-    Nutritionists and master coaches use this service.
+    Implemented by NutritionistService and MasterCoachService.
     """
 
     @abstractmethod
