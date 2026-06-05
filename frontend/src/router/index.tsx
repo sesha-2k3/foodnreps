@@ -26,7 +26,7 @@ import Unauthorized from '../pages/Unauthorized';
 import Dashboard from '../pages/Dashboard';
 
 // ── Client pages ──────────────────────────────────────────────────────────────
-import ClientDashboard from '../pages/client/ClientDashboard';
+import ClientDashboard from '../pages/client/Dashboard';
 import ClientWorkoutView from '../pages/client/WorkoutView';
 import ClientDietView from '../pages/client/DietView';
 
