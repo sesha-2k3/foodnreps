@@ -224,3 +224,103 @@ export interface CreateProgrammeRequest {
 export interface CreateDietPlanRequest {
   name: string;
 }
+
+// ── Client summary (for coaching staff client lists) ──────────────────────────
+
+export interface ClientSummaryResponse {
+  id: string;
+  full_name: string;
+  email: string;
+  is_active: boolean;
+  /** True when this client has at least one active workout programme. */
+  has_active_workout: boolean;
+  /** True when this client has at least one active diet plan. */
+  has_active_diet: boolean;
+}
+
+export interface PaginatedClientsResponse {
+  data: ClientSummaryResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ── Workout programme mutations ───────────────────────────────────────────────
+
+export interface CreateProgrammeRequest {
+  name: string;
+  coach_notes?: string;
+}
+
+export interface AddWeekRequest {
+  week_number: number;
+  label: string;
+  notes?: string;
+}
+
+export interface AddDayRequest {
+  day_number: number;
+  label: string;
+  notes?: string;
+}
+
+/**
+ * Full prescription creation payload.
+ * Mirrors WorkoutPrescription domain entity fields.
+ * Reps constraint: reps_min or reps_note must be non-null
+ * (enforced by modal before submission).
+ */
+export interface AddPrescriptionRequest {
+  exercise_name: string;
+  order_index: number;
+  warmup_sets?: number | null;
+  working_sets?: number | null;
+  reps_min?: number | null;
+  reps_max?: number | null;
+  reps_note?: string | null;
+  prescribed_load_kg?: number | null;
+  prescribed_load_text?: string | null;
+  prescribed_rpe?: number | null;
+  prescribed_rir?: number | null;
+  rest_seconds?: number | null;
+  instructions?: string | null;
+}
+
+/**
+ * Partial update — only send changed fields.
+ * The backend merges these onto the existing prescription.
+ */
+export interface UpdatePrescriptionRequest {
+  exercise_name?: string;
+  working_sets?: number | null;
+  warmup_sets?: number | null;
+  reps_min?: number | null;
+  reps_max?: number | null;
+  reps_note?: string | null;
+  prescribed_load_kg?: number | null;
+  prescribed_load_text?: string | null;
+  prescribed_rpe?: number | null;
+  prescribed_rir?: number | null;
+  rest_seconds?: number | null;
+  instructions?: string | null;
+}
+
+// ── Diet plan mutations ───────────────────────────────────────────────────────
+
+export interface AddDietEntryRequest {
+  food_name: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  order_index: number;
+}
+
+export interface UpdateDietEntryRequest {
+  food_name?: string;
+  calories?: number;
+  protein_g?: number;
+  fat_g?: number;
+  carbs_g?: number;
+  order_index?: number;
+}
