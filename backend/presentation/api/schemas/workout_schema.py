@@ -310,3 +310,14 @@ class LogWorkoutRequest(BaseModel):
     time_taken_seconds: int | None = None
     client_notes: str | None = None
     logged_at: date | None = None
+
+
+class UpdateWorkoutLogRequest(BaseModel):
+    actual_sets: int | None = None
+    actual_reps: int | None = None
+    actual_load_kg: Decimal | None = None
+    actual_rpe: Decimal | None = None
+    readiness: int | None = None
+    time_taken_seconds: int | None = None
+    client_notes: str | None = None
+    logged_at: date | None = None

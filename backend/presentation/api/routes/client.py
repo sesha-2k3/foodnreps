@@ -19,6 +19,8 @@ Design choice — hierarchical response assembled in the route handler:
     a Phase 1 pragmatism noted in the architecture doc under P1.
 """
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from application.services.client_service import ClientService
@@ -43,6 +45,7 @@ from presentation.api.schemas.workout_schema import (
     LogWorkoutRequest,
     ProgramDayResponse,
     ProgramWeekResponse,
+    UpdateWorkoutLogRequest,
     WorkoutLogResponse,
     WorkoutProgramResponse,
 )
@@ -143,6 +146,33 @@ async def log_workout(
         client_id=current_user.id,
         prescription_id=body.prescription_id,
         exercise_name=body.exercise_name,
+        actual_sets=body.actual_sets,
+        actual_reps=body.actual_reps,
+        actual_load_kg=body.actual_load_kg,
+        actual_rpe=body.actual_rpe,
+        readiness=body.readiness,
+        time_taken_seconds=body.time_taken_seconds,
+        client_notes=body.client_notes,
+        logged_at=body.logged_at,
+    )
+    return WorkoutLogResponse.from_entity(log)
+
+
+@router.patch(
+    "/workout-logs/{log_id}",
+    response_model=WorkoutLogResponse,
+    status_code=200,
+    summary="Update an existing workout log entry",
+)
+async def update_workout_log(
+    log_id: UUID,
+    body: UpdateWorkoutLogRequest,
+    current_user: CurrentUser = _require_client,
+    service: ClientService = Depends(get_client_service),
+) -> WorkoutLogResponse:
+    log = await service.update_log(
+        client_id=current_user.id,
+        log_id=log_id,
         actual_sets=body.actual_sets,
         actual_reps=body.actual_reps,
         actual_load_kg=body.actual_load_kg,

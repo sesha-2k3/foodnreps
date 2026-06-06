@@ -27,7 +27,8 @@ Design choice — save() handles both create and update:
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from domain.entities.assignment import ClientStaffAssignment
@@ -264,6 +265,25 @@ class IWorkoutLogRepository(ABC):
     @abstractmethod
     async def save(self, log: WorkoutLog) -> WorkoutLog:
         """Always inserts — workout logs are append-only."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, log_id: UUID) -> WorkoutLog | None: ...
+
+    @abstractmethod
+    async def update(
+        self,
+        log_id: UUID,
+        actual_sets: int | None = None,
+        actual_reps: int | None = None,
+        actual_load_kg: Decimal | None = None,
+        actual_rpe: Decimal | None = None,
+        readiness: int | None = None,
+        time_taken_seconds: int | None = None,
+        client_notes: str | None = None,
+        logged_at: date | None = None,
+    ) -> WorkoutLog | None:
+        """Update mutable fields of an existing log. Returns None if not found."""
         ...
 
 

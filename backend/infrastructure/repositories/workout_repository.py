@@ -24,6 +24,8 @@ Design choice — tonnage_kg is not mapped in _to_entity for WorkoutLog:
     map the GENERATED column — the entity property handles it automatically.
 """
 
+from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -420,6 +422,45 @@ class WorkoutLogRepository(IWorkoutLogRepository):
             created_at=log.created_at,
         )
         self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_entity(model)
+
+    async def get_by_id(self, log_id: UUID) -> WorkoutLog | None:
+        model = await self._session.get(WorkoutLogModel, log_id)
+        return self._to_entity(model) if model else None
+
+    async def update(
+        self,
+        log_id: UUID,
+        actual_sets: int | None = None,
+        actual_reps: int | None = None,
+        actual_load_kg: Decimal | None = None,
+        actual_rpe: Decimal | None = None,
+        readiness: int | None = None,
+        time_taken_seconds: int | None = None,
+        client_notes: str | None = None,
+        logged_at: date | None = None,
+    ) -> WorkoutLog | None:
+        model = await self._session.get(WorkoutLogModel, log_id)
+        if model is None:
+            return None
+
+        updates = {
+            "actual_sets": actual_sets,
+            "actual_reps": actual_reps,
+            "actual_load_kg": actual_load_kg,
+            "actual_rpe": actual_rpe,
+            "readiness": readiness,
+            "time_taken_seconds": time_taken_seconds,
+            "client_notes": client_notes,
+            "logged_at": logged_at,
+        }
+
+        for field, value in updates.items():
+            if value is not None:
+                setattr(model, field, value)
+
         await self._session.flush()
         await self._session.refresh(model)
         return self._to_entity(model)

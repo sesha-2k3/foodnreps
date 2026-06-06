@@ -204,3 +204,34 @@ class ClientService(IClientService):
             occurred_at=datetime.now(tz=UTC),
         )
         await self._activity_log_repo.save(log)
+
+    async def update_log(
+        self,
+        client_id: UUID,
+        log_id: UUID,
+        actual_sets: int | None = None,
+        actual_reps: int | None = None,
+        actual_load_kg: Decimal | None = None,
+        actual_rpe: Decimal | None = None,
+        readiness: int | None = None,
+        time_taken_seconds: int | None = None,
+        client_notes: str | None = None,
+        logged_at: date | None = None,
+    ) -> WorkoutLog:
+        log = await self._log_repo.get_by_id(log_id)
+        if log is None:
+            raise NotFoundError(f"Log {log_id} not found.")
+        if log.client_id != client_id:
+            raise ForbiddenError("You can only edit your own log entries.")
+        updated = await self._log_repo.update(
+            log_id=log_id,
+            actual_sets=actual_sets,
+            actual_reps=actual_reps,
+            actual_load_kg=actual_load_kg,
+            actual_rpe=actual_rpe,
+            readiness=readiness,
+            time_taken_seconds=time_taken_seconds,
+            client_notes=client_notes,
+            logged_at=logged_at,
+        )
+        return updated  # type: ignore[return-value]
