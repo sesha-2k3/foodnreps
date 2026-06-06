@@ -191,6 +191,20 @@ class IWorkoutProgramRepository(ABC):
         """
         ...
 
+    @abstractmethod
+    async def get_active_assigned_by_owner(
+        self, owner_id: UUID
+    ) -> WorkoutProgram | None:
+        """The single active non-template assigned (is_personal=False) programme."""
+        ...
+
+    @abstractmethod
+    async def get_active_personal_by_owner(
+        self, owner_id: UUID
+    ) -> WorkoutProgram | None:
+        """The single active non-template personal (is_personal=True) programme."""
+        ...
+
 
 class IProgramWeekRepository(ABC):
     @abstractmethod
