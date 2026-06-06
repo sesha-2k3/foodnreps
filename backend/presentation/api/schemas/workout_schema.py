@@ -1,30 +1,24 @@
 """
 Workout request/response schemas.
 
-Design choice — derived display fields, not raw stored fields:
-    WorkoutPrescriptionResponse exposes exercise_label ("A"), reps_display
-    ("6–8"), and load_display ("70 kg") instead of the underlying stored
-    values (order_index, reps_min/reps_max/reps_note, prescribed_load_kg/text).
-    These are computed from domain entity @property values or a local helper.
-    The stored values are an atomicity concern (1NF in the schema); the display
-    values are a presentation concern. Keeping them separate means the domain
-    schema and the API contract can each evolve independently.
+Design choice — both raw and display fields on WorkoutPrescriptionResponse:
+    The client view uses reps_display ("6–8") and load_display ("70 kg").
+    The coach edit view needs the raw values (reps_min, reps_max,
+    prescribed_load_kg) to populate editable table cells.
+    Both sets of fields are included in the same response so a single
+    endpoint serves both views without a separate coach-specific schema.
+
+Design choice — logs nested under prescriptions:
+    The frontend renders the prescription table (blue) and log table (amber)
+    per day. Nesting logs under their prescription avoids a separate
+    GET /logs endpoint and a second network round-trip on every page load.
+    The N+1 query (one log fetch per prescription) is a known Phase 1
+    limitation — the fix is selectinload in the repository, which requires
+    no change to these schemas.
 
 Design choice — Decimal → float at this boundary:
-    Domain entities use Decimal for prescribed_load_kg and actual_load_kg to
-    prevent floating-point accumulation errors across multiple calculations.
+    Domain entities use Decimal for monetary-precision arithmetic.
     JSON has no Decimal type. Schemas expose these as float | None.
-    The domain and infrastructure layers are never contaminated with float
-    precision issues; the frontend receives the standard JSON number type.
-
-Design choice — hierarchical assembly is a route concern, not a service concern:
-    The service returns a WorkoutProgram entity (top-level only). Building the
-    full weeks → days → prescriptions hierarchy requires additional repository
-    calls. These are made in the route handler and assembled here via the
-    from_entities classmethods. This is read-only orchestration (no business
-    logic), which is acceptable in the presentation layer. The N+1 pattern
-    is a known Phase 1 limitation — the fix is selectinload in the repository
-    query, which requires no change to these schemas.
 """
 
 from datetime import date, datetime
@@ -41,26 +35,55 @@ from domain.entities.workout import (
     WorkoutProgram,
 )
 
+
 # ── Display helpers ────────────────────────────────────────────────────────────
 
 
 def _format_load(prescription: WorkoutPrescription) -> str | None:
-    """
-    Format the load specification as a single human-readable string.
-
-    Examples:
-        prescribed_load_kg=70.0, text=None         → "70 kg"
-        prescribed_load_kg=None, text="BW"          → "BW"
-        prescribed_load_kg=70.0, text="70% of 1RM" → "70 kg (70% of 1RM)"
-        prescribed_load_kg=None, text=None           → None
-    """
     kg = prescription.prescribed_load_kg
     text = prescription.prescribed_load_text
     if kg is not None and text:
         return f"{kg:g} kg ({text})"
     if kg is not None:
         return f"{kg:g} kg"
-    return text  # may be None
+    return text
+
+
+# ── Workout log (RED side) ─────────────────────────────────────────────────────
+
+
+class WorkoutLogResponse(BaseModel):
+    id: UUID
+    prescription_id: UUID | None
+    exercise_name: str | None
+    logged_at: date
+    actual_sets: int
+    actual_reps: int
+    actual_load_kg: float | None
+    actual_rpe: float | None
+    readiness: int | None
+    time_taken_seconds: int | None
+    client_notes: str | None
+    tonnage_kg: float | None
+
+    @classmethod
+    def from_entity(cls, log: WorkoutLog) -> "WorkoutLogResponse":
+        return cls(
+            id=log.id,
+            prescription_id=log.prescription_id,
+            exercise_name=log.exercise_name,
+            logged_at=log.logged_at,
+            actual_sets=log.actual_sets,
+            actual_reps=log.actual_reps,
+            actual_load_kg=float(log.actual_load_kg)
+            if log.actual_load_kg is not None
+            else None,
+            actual_rpe=float(log.actual_rpe) if log.actual_rpe is not None else None,
+            readiness=log.readiness,
+            time_taken_seconds=log.time_taken_seconds,
+            client_notes=log.client_notes,
+            tonnage_kg=float(log.tonnage_kg) if log.tonnage_kg is not None else None,
+        )
 
 
 # ── Prescription (BLUE side) ───────────────────────────────────────────────────
@@ -69,19 +92,40 @@ def _format_load(prescription: WorkoutPrescription) -> str | None:
 class WorkoutPrescriptionResponse(BaseModel):
     id: UUID
     order_index: int
-    exercise_label: str  # "A", "B", "C" — from entity @property
+    exercise_label: str  # "A", "B", "C"
     exercise_name: str
     warmup_sets: int | None
     working_sets: int | None
-    reps_display: str  # "6–8", "5", "max reps" — from entity @property
-    load_display: str | None  # "70 kg", "BW" — from _format_load()
+
+    # Raw reps fields — needed by coach edit view
+    reps_min: int | None
+    reps_max: int | None
+    reps_note: str | None
+
+    # Derived display — needed by client read view
+    reps_display: str  # "6–8", "5", "max reps"
+
+    # Raw load fields — needed by coach edit view
+    prescribed_load_kg: float | None
+    prescribed_load_text: str | None
+
+    # Derived display — needed by client read view
+    load_display: str | None  # "70 kg", "BW"
+
     prescribed_rpe: float | None
     prescribed_rir: int | None
     rest_seconds: int | None
     instructions: str | None
 
+    # Nested logs — needed by client log table
+    logs: list[WorkoutLogResponse] = []
+
     @classmethod
-    def from_entity(cls, p: WorkoutPrescription) -> "WorkoutPrescriptionResponse":
+    def from_entity(
+        cls,
+        p: WorkoutPrescription,
+        logs: list[WorkoutLog] | None = None,
+    ) -> "WorkoutPrescriptionResponse":
         return cls(
             id=p.id,
             order_index=p.order_index,
@@ -89,7 +133,14 @@ class WorkoutPrescriptionResponse(BaseModel):
             exercise_name=p.exercise_name,
             warmup_sets=p.warmup_sets,
             working_sets=p.working_sets,
+            reps_min=p.reps_min,
+            reps_max=p.reps_max,
+            reps_note=p.reps_note,
             reps_display=p.reps_display,
+            prescribed_load_kg=float(p.prescribed_load_kg)
+            if p.prescribed_load_kg is not None
+            else None,
+            prescribed_load_text=p.prescribed_load_text,
             load_display=_format_load(p),
             prescribed_rpe=float(p.prescribed_rpe)
             if p.prescribed_rpe is not None
@@ -97,12 +148,28 @@ class WorkoutPrescriptionResponse(BaseModel):
             prescribed_rir=p.prescribed_rir,
             rest_seconds=p.rest_seconds,
             instructions=p.instructions,
+            logs=[WorkoutLogResponse.from_entity(log) for log in (logs or [])],
         )
 
 
 class AddPrescriptionRequest(BaseModel):
     order_index: int
     exercise_name: str
+    warmup_sets: int | None = None
+    working_sets: int | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
+    reps_note: str | None = None
+    prescribed_load_kg: Decimal | None = None
+    prescribed_load_text: str | None = None
+    prescribed_rpe: Decimal | None = None
+    prescribed_rir: int | None = None
+    rest_seconds: int | None = None
+    instructions: str | None = None
+
+
+class UpdatePrescriptionRequest(BaseModel):
+    exercise_name: str | None = None
     warmup_sets: int | None = None
     working_sets: int | None = None
     reps_min: int | None = None
@@ -131,14 +198,17 @@ class ProgramDayResponse(BaseModel):
         cls,
         day: ProgramDay,
         prescriptions: list[WorkoutPrescription],
+        logs_by_prescription: dict[UUID, list[WorkoutLog]] | None = None,
     ) -> "ProgramDayResponse":
+        logs_map = logs_by_prescription or {}
         return cls(
             id=day.id,
             day_number=day.day_number,
             label=day.label,
             notes=day.notes,
             prescriptions=[
-                WorkoutPrescriptionResponse.from_entity(p) for p in prescriptions
+                WorkoutPrescriptionResponse.from_entity(p, logs_map.get(p.id, []))
+                for p in prescriptions
             ],
         )
 
@@ -226,7 +296,7 @@ class CreateProgrammeRequest(BaseModel):
     coach_notes: str | None = None
 
 
-# ── Workout log (RED side) ─────────────────────────────────────────────────────
+# ── Workout log request ────────────────────────────────────────────────────────
 
 
 class LogWorkoutRequest(BaseModel):
@@ -240,37 +310,3 @@ class LogWorkoutRequest(BaseModel):
     time_taken_seconds: int | None = None
     client_notes: str | None = None
     logged_at: date | None = None
-
-
-class WorkoutLogResponse(BaseModel):
-    id: UUID
-    prescription_id: UUID | None
-    exercise_name: str | None
-    logged_at: date
-    actual_sets: int
-    actual_reps: int
-    actual_load_kg: float | None
-    actual_rpe: float | None
-    readiness: int | None
-    time_taken_seconds: int | None
-    client_notes: str | None
-    tonnage_kg: float | None  # derived from entity @property
-
-    @classmethod
-    def from_entity(cls, log: WorkoutLog) -> "WorkoutLogResponse":
-        return cls(
-            id=log.id,
-            prescription_id=log.prescription_id,
-            exercise_name=log.exercise_name,
-            logged_at=log.logged_at,
-            actual_sets=log.actual_sets,
-            actual_reps=log.actual_reps,
-            actual_load_kg=float(log.actual_load_kg)
-            if log.actual_load_kg is not None
-            else None,
-            actual_rpe=float(log.actual_rpe) if log.actual_rpe is not None else None,
-            readiness=log.readiness,
-            time_taken_seconds=log.time_taken_seconds,
-            client_notes=log.client_notes,
-            tonnage_kg=float(log.tonnage_kg) if log.tonnage_kg is not None else None,
-        )
