@@ -1,5 +1,8 @@
 """
 Admin routes — presentation/api/routes/admin.py
+
+Only the override endpoint changed from the previous version.
+Everything else (user management, assignments, plan read) is unchanged.
 """
 
 from datetime import datetime, timezone
@@ -33,12 +36,12 @@ from presentation.api.dependencies import (
     get_user_repo,
 )
 from presentation.api.schemas.admin_schema import (
-    AssignmentResponse,
     AssignStaffRequest,
+    AssignmentResponse,
     ClientAssignmentsResponse,
     CreateUserRequest,
     EndAssignmentRequest,
-    OverrideReasonRequest,
+    OverrideWorkoutRequest,
     UserListResponse,
     UserResponse,
 )
@@ -234,13 +237,13 @@ async def get_client_diet(
     return DietPlanResponse.from_entities(plan, entries).model_dump()
 
 
-# ── Plan override ─────────────────────────────────────────────────────────────
+# ── Plan override (atomic: reason + prescription patches) ─────────────────────
 
 
 @router.post("/clients/{client_id}/workout/override")
 async def override_workout(
     client_id: UUID,
-    body: OverrideReasonRequest,
+    body: OverrideWorkoutRequest,
     admin: User = Depends(require_super_admin),
     svc: SuperAdminService = Depends(get_super_admin_service),
     session: AsyncSession = Depends(get_db),
@@ -250,9 +253,19 @@ async def override_workout(
     )
     if program is None:
         raise NotFoundError(f"No active programme for client {client_id}")
+
+    # Serialise PrescriptionPatch models to plain dicts for the service layer.
+    # The service converts float → Decimal for the relevant fields.
+    changes_as_dicts = [patch.model_dump(exclude_none=True) for patch in body.changes]
+
     saved = await svc.override_workout_programme(
         program_id=program.id,
         override_reason=body.override_reason,
         admin_id=admin.id,
+        changes=changes_as_dicts,
     )
-    return {"id": str(saved.id), "override_reason": saved.override_reason}
+    return {
+        "id": str(saved.id),
+        "override_reason": saved.override_reason,
+        "changes_applied": len(body.changes),
+    }
