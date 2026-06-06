@@ -193,7 +193,7 @@ async def get_client_workout(
     pres_repo = WorkoutPrescriptionRepository(session)
     log_repo = WorkoutLogRepository(session)
 
-    program = await prog_repo.get_active_by_owner(client_id)
+    program = await prog_repo.get_active_assigned_by_owner(client_id)
     if program is None:
         raise NotFoundError(f"No active programme for client {client_id}")
 
@@ -212,7 +212,7 @@ async def get_client_workout(
             )
         week_responses.append(ProgramWeekResponse.from_entities(week, day_responses))
 
-    return WorkoutProgramResponse.from_entities(program, week_responses).model_dump()
+    return WorkoutProgramResponse.from_entity(program, week_responses).model_dump()
 
 
 @router.get("/clients/{client_id}/diet")
@@ -245,7 +245,9 @@ async def override_workout(
     svc: SuperAdminService = Depends(get_super_admin_service),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    program = await WorkoutProgramRepository(session).get_active_by_owner(client_id)
+    program = await WorkoutProgramRepository(session).get_active_assigned_by_owner(
+        client_id
+    )
     if program is None:
         raise NotFoundError(f"No active programme for client {client_id}")
     saved = await svc.override_workout_programme(
