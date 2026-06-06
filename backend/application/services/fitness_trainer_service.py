@@ -20,9 +20,16 @@ Design choice — assignment verification before every client write:
 
 Design choice — deactivate-before-create for new programmes:
     When a trainer creates a new programme for a client, any existing active
-    non-template programme is deactivated first. This maintains the one-active-
-    programme-per-owner invariant at the service layer before the repository's
-    partial unique index enforces it at the DB layer.
+    non-template ASSIGNED programme is deactivated first. Personal programmes
+    (is_personal=True) are deliberately not touched — they belong to the
+    client's self-managed plan and are independent of coaching assignments.
+
+Design choice — get_active_assigned_by_owner, not get_active_by_owner:
+    All trainer operations that look up the client's programme must use
+    get_active_assigned_by_owner (is_personal=False filter). Using
+    get_active_by_owner would return the client's personal programme
+    when no assigned programme exists, causing trainer edits to silently
+    corrupt the client's self-managed plan.
 
 Design choice — activity log on every significant mutation:
     Plan creation, deactivation, week/day/prescription additions are all
@@ -96,12 +103,14 @@ class FitnessTrainerService:
         coach_notes: str | None = None,
     ) -> WorkoutProgram:
         """
-        Create a new workout programme for an assigned client.
-        Deactivates any existing active programme first.
+        Create a new assigned workout programme for a client.
+        Deactivates any existing active ASSIGNED programme first.
+        Personal programmes (is_personal=True) are left untouched.
         """
         await self._verify_trainer_for_client(trainer_id, client_id)
 
-        existing = await self._workout_repo.get_active_by_owner(client_id)
+        # Only deactivate an existing ASSIGNED programme — never touch personal ones
+        existing = await self._workout_repo.get_active_assigned_by_owner(client_id)
         if existing is not None:
             deactivated = self._factory.deactivate_program(existing)
             await self._workout_repo.save(deactivated)
@@ -131,9 +140,11 @@ class FitnessTrainerService:
     async def get_client_programme(
         self, trainer_id: UUID, client_id: UUID
     ) -> WorkoutProgram | None:
-        """Return the active programme for an assigned client, or None."""
+        """Return the active ASSIGNED programme for a client, or None."""
         await self._verify_trainer_for_client(trainer_id, client_id)
-        return await self._workout_repo.get_active_by_owner(client_id)
+        # Use get_active_assigned_by_owner — never return the client's
+        # personal programme to the trainer's view.
+        return await self._workout_repo.get_active_assigned_by_owner(client_id)
 
     # ── Week / Day / Prescription ─────────────────────────────────────────────
 
@@ -145,13 +156,15 @@ class FitnessTrainerService:
         label: str = "Week",
         notes: str | None = None,
     ) -> ProgramWeek:
-        """Add a week to the client's active programme."""
+        """Add a week to the client's active ASSIGNED programme."""
         await self._verify_trainer_for_client(trainer_id, client_id)
-        program = await self._workout_repo.get_active_by_owner(client_id)
+        # Only look up the assigned programme — prevents accidental mutation
+        # of the client's personal plan when no assigned programme exists yet.
+        program = await self._workout_repo.get_active_assigned_by_owner(client_id)
         if program is None:
             raise NotFoundError(
-                f"No active programme found for client {client_id}. "
-                "Create a programme first."
+                f"No active assigned programme found for client {client_id}. "
+                "Create an assigned programme first."
             )
         week = self._factory.create_week(
             program_id=program.id,
@@ -229,8 +242,8 @@ class FitnessTrainerService:
             instructions=instructions,
         )
         saved = await self._prescription_repo.save(prescription)
-        # Log against the client's active programme
-        active = await self._workout_repo.get_active_by_owner(client_id)
+        # Log against the client's active ASSIGNED programme only
+        active = await self._workout_repo.get_active_assigned_by_owner(client_id)
         if active is not None:
             await self._log_activity(
                 plan_type=PlanType.WORKOUT,
@@ -247,13 +260,13 @@ class FitnessTrainerService:
         client_id: UUID,
         prescription_id: UUID,
     ) -> None:
-        """Delete a prescription from the client's programme."""
+        """Delete a prescription from the client's assigned programme."""
         await self._verify_trainer_for_client(trainer_id, client_id)
         prescription = await self._prescription_repo.get_by_id(prescription_id)
         if prescription is None:
             raise NotFoundError(f"Prescription {prescription_id} not found")
         await self._prescription_repo.delete(prescription_id)
-        active = await self._workout_repo.get_active_by_owner(client_id)
+        active = await self._workout_repo.get_active_assigned_by_owner(client_id)
         if active is not None:
             await self._log_activity(
                 plan_type=PlanType.WORKOUT,
