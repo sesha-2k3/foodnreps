@@ -1,29 +1,28 @@
 /**
  * PersonalWorkout — self-managed workout programme view.
  *
- * Shown when a client has no assigned coach, or when any authenticated
- * user visits /personal/workout. The client acts as their own coach:
- * they can edit their own prescription entries (sets, reps, load targets).
+ * Sprint 8 changes from Sprint 7 stub:
+ *   1. handlePrescriptionEdit now calls PATCH /personal/workout/prescriptions/:id
+ *      via useProgrammeMutations('', 'personal').
+ *   2. NoPersonalProgramme now renders a real create form — the "coming soon"
+ *      button is replaced with a functional inline name input that calls
+ *      POST /personal/workout via the same mutation hook.
  *
- * Design choice — editable=true for prescriptions in personal mode:
- *   The only difference between WorkoutView (assigned) and PersonalWorkout
- *   is editability of prescription rows. In assigned mode, the coach owns
- *   the prescription — the client reads it. In personal mode, the client
- *   IS the coach — they write their own prescription and log against it.
- *   A single FitnessTable prop change (editable) unlocks this.
+ * Design choice — reps_display and load_display sent as reps_note and
+ * prescribed_load_text on update:
+ *   PersonalPrescriptionRow stores display fields (reps_display: "6–8",
+ *   load_display: "70 kg") rather than the raw reps_min/reps_max/load_kg
+ *   values. When the user inline-edits these fields and saves, we send
+ *   whatever string they typed as reps_note and prescribed_load_text.
+ *   This preserves freeform flexibility for self-managing clients who may
+ *   write "6-8" or "as many as possible" or "bodyweight". The full
+ *   AddPrescriptionModal (used by coaches) handles structured raw values;
+ *   personal inline editing is intentionally more freeform.
  *
- * Design choice — Programme Builder deferred to Sprint 8:
- *   Creating the week/day structure (adding weeks, naming days, structuring
- *   the hierarchy) is the Programme Builder — the most complex UI in the
- *   app. That is Sprint 8's scope. Sprint 7 handles the read + log + edit
- *   existing entries use cases. If no personal programme exists, the view
- *   shows an empty state with a clear explanation.
- *
- * Design choice — same hooks, different endpoint:
- *   usePersonalWorkout() fetches GET /personal/workout and
- *   usePersonalDiet() fetches GET /personal/diet. The mutation
- *   useLogWorkout invalidates both CLIENT_WORKOUT_KEY and PERSONAL_WORKOUT_KEY
- *   so this view refreshes correctly after a log submission.
+ * Design choice — working_sets parsed as integer before sending:
+ *   FitnessTable stores all cell values as strings internally. working_sets
+ *   arrives in onRowEdit as a string ("4"). parseInt converts it before the
+ *   API call. If the string is empty or not a number, we send null.
  */
 
 import React, { useState } from 'react';
@@ -31,6 +30,7 @@ import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
 import { LogEntryModal } from '../../components/workout/LogEntryModal';
 import { usePersonalWorkout } from '../../hooks/useClientWorkout';
+import { useProgrammeMutations } from '../../hooks/useProgrammeMutations';
 import {
   formatLoad,
   formatRest,
@@ -39,7 +39,6 @@ import {
   formatRpe,
 } from '../../utils/format';
 import type {
-  WorkoutProgramResponse,
   ProgramWeekResponse,
   ProgramDayResponse,
   WorkoutPrescriptionResponse,
@@ -71,27 +70,26 @@ interface DayLogRow extends Record<string, unknown> {
 }
 
 // ── Column definitions ────────────────────────────────────────────────────────
-// editable: true allows inline editing of prescription targets (sets, reps, load)
 
 const PERSONAL_PRESCRIPTION_COLUMNS: FitnessColumnDef<PersonalPrescriptionRow>[] = [
-  { key: 'exercise_label', header: '',           width: 36,  editable: false },
-  { key: 'exercise_name',  header: 'Exercise',              type: 'text'   },
-  { key: 'working_sets',   header: 'Sets',       width: 60,  type: 'number' },
-  { key: 'reps_display',   header: 'Reps',       width: 90,  type: 'text'   },
-  { key: 'load_display',   header: 'Load',       width: 100, type: 'text'   },
-  { key: 'rest_display',   header: 'Rest',       width: 80,  editable: false },
-  { key: 'instructions',   header: 'Notes',                  type: 'text'   },
+  { key: 'exercise_label', header: '',          width: 36,  editable: false },
+  { key: 'exercise_name',  header: 'Exercise',              type: 'text'    },
+  { key: 'working_sets',   header: 'Sets',      width: 60,  type: 'number'  },
+  { key: 'reps_display',   header: 'Reps',      width: 90,  type: 'text'    },
+  { key: 'load_display',   header: 'Load',      width: 100, type: 'text'    },
+  { key: 'rest_display',   header: 'Rest',      width: 80,  editable: false },
+  { key: 'instructions',   header: 'Notes',                 type: 'text'    },
 ];
 
 const LOG_COLUMNS: FitnessColumnDef<DayLogRow>[] = [
   { key: 'exercise_label',    header: '',        width: 36,  editable: false },
   { key: 'exercise_name',     header: 'Exercise',            editable: false },
-  { key: 'logged_at_display', header: 'Date',   width: 76,  editable: false },
-  { key: 'actual_sets',       header: 'Sets',   width: 60,  editable: false },
-  { key: 'actual_reps',       header: 'Reps',   width: 60,  editable: false },
-  { key: 'load_display',      header: 'Load',   width: 100, editable: false },
-  { key: 'rpe_display',       header: 'RPE',    width: 72,  editable: false },
-  { key: 'tonnage_display',   header: 'Volume', width: 110, editable: false },
+  { key: 'logged_at_display', header: 'Date',    width: 76,  editable: false },
+  { key: 'actual_sets',       header: 'Sets',    width: 60,  editable: false },
+  { key: 'actual_reps',       header: 'Reps',    width: 60,  editable: false },
+  { key: 'load_display',      header: 'Load',    width: 100, editable: false },
+  { key: 'rpe_display',       header: 'RPE',     width: 72,  editable: false },
+  { key: 'tonnage_display',   header: 'Volume',  width: 110, editable: false },
 ];
 
 // ── Mapping functions ─────────────────────────────────────────────────────────
@@ -165,7 +163,7 @@ function PersonalDaySection({
             data={prescriptionRows}
             editable={true}
             onRowEdit={onPrescriptionEdit}
-            emptyMessage="No exercises yet. Use the programme builder to add them."
+            emptyMessage="No exercises yet."
           />
         </div>
       </div>
@@ -249,13 +247,28 @@ function PersonalWeekSection({
               />
             </div>
           ))}
+          {week.days.length === 0 && (
+            <p className="px-5 py-6 text-sm text-gray-400 italic text-center">
+              No days in this week yet.
+            </p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function NoPersonalProgramme() {
+// ── No programme empty state (functional in Sprint 8) ────────────────────────
+
+function NoPersonalProgramme({
+  onCreate,
+  isPending,
+}: {
+  onCreate: (name: string) => Promise<void>;
+  isPending: boolean;
+}) {
+  const [name, setName] = useState('');
+
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -264,20 +277,30 @@ function NoPersonalProgramme() {
         </svg>
       </div>
       <h2 className="text-lg font-semibold text-gray-900 mb-2">No personal programme yet</h2>
-      <p className="text-sm text-gray-500 mb-2">
-        Create your own workout programme to start training independently.
+      <p className="text-sm text-gray-500 mb-6">
+        Create your own programme to start training independently.
       </p>
-      <p className="text-xs text-gray-400 mb-6">
-        The programme builder is coming soon. It will let you structure weeks, days, and exercises exactly how you want.
-      </p>
-      {/* Placeholder — Create programme button wired in Sprint 8 */}
-      <button
-        type="button"
-        disabled
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-200 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed"
-      >
-        Create programme (coming soon)
-      </button>
+      <div className="flex gap-2 max-w-sm mx-auto">
+        <input
+          type="text"
+          placeholder="Name it, e.g. My Training Block"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && name.trim()) void onCreate(name.trim());
+          }}
+          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={isPending}
+        />
+        <button
+          type="button"
+          disabled={!name.trim() || isPending}
+          onClick={() => void onCreate(name.trim())}
+          className="px-4 py-2 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
+        >
+          {isPending ? '…' : 'Create'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -288,11 +311,26 @@ export function PersonalWorkout() {
   const { data: programme, isLoading } = usePersonalWorkout();
   const [logModalDay, setLogModalDay] = useState<ProgramDayResponse | null>(null);
 
-  // Prescription edit handler — calls PATCH /personal/workout/prescriptions/:id
-  // Wired fully in Sprint 8 when the prescription mutation hook is built.
-  const handlePrescriptionEdit = async (_row: PersonalPrescriptionRow): Promise<void> => {
-    // TODO Sprint 8: wire to usePrescriptionUpdate mutation
-    console.warn('Prescription update not yet wired. Sprint 8 will implement this.');
+  // Sprint 8: all personal workout mutations via useProgrammeMutations
+  const mutations = useProgrammeMutations('', 'personal');
+
+  // Wired prescription edit — sends display fields as freeform text values.
+  // The backend updates reps_note and prescribed_load_text with whatever
+  // the user typed. Raw structured values (reps_min/reps_max/load_kg) are
+  // set via AddPrescriptionModal when exercises are first created.
+  const handlePrescriptionEdit = async (row: PersonalPrescriptionRow): Promise<void> => {
+    await mutations.updatePrescription.mutateAsync({
+      prescriptionId: row.id as string,
+      data: {
+        exercise_name: (row.exercise_name as string) || undefined,
+        working_sets: row.working_sets
+          ? parseInt(row.working_sets as string) || null
+          : null,
+        reps_note: (row.reps_display as string) || null,
+        prescribed_load_text: (row.load_display as string) || null,
+        instructions: (row.instructions as string) || null,
+      },
+    });
   };
 
   if (isLoading) {
@@ -304,7 +342,16 @@ export function PersonalWorkout() {
     );
   }
 
-  if (!programme) return <NoPersonalProgramme />;
+  if (!programme) {
+    return (
+      <NoPersonalProgramme
+        onCreate={async (name) => {
+          await mutations.createProgramme.mutateAsync({ name });
+        }}
+        isPending={mutations.createProgramme.isPending}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -322,15 +369,21 @@ export function PersonalWorkout() {
         )}
       </div>
 
-      {programme.weeks.map((week, idx) => (
-        <PersonalWeekSection
-          key={week.id}
-          week={week}
-          defaultOpen={idx === 0}
-          onLogClick={setLogModalDay}
-          onPrescriptionEdit={handlePrescriptionEdit}
-        />
-      ))}
+      {programme.weeks.length === 0 ? (
+        <p className="text-sm text-gray-400 italic text-center py-12">
+          Programme created — add weeks and exercises to get started.
+        </p>
+      ) : (
+        programme.weeks.map((week, idx) => (
+          <PersonalWeekSection
+            key={week.id}
+            week={week}
+            defaultOpen={idx === 0}
+            onLogClick={setLogModalDay}
+            onPrescriptionEdit={handlePrescriptionEdit}
+          />
+        ))
+      )}
 
       {logModalDay && (
         <LogEntryModal

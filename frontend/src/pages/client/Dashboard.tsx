@@ -17,6 +17,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { ConnectWithCoach } from '../../components/invite/ConnectWithCoach';
 
 function NavCard({
   to,
@@ -69,7 +70,10 @@ export function ClientDashboard() {
         </h1>
         <p className="text-sm text-gray-500 mt-1">Here's your training dashboard.</p>
       </div>
-
+      {/* Coaching staff + connect section */}
+      <section>
+        <ConnectWithCoach />
+      </section>
       {/* Assigned plans */}
       <section className="mb-6">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
