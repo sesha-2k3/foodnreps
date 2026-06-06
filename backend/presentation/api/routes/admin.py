@@ -1,26 +1,20 @@
 """
-Super admin routes — user lifecycle and plan overrides.
-
-All routes require role=super_admin. Two conceptually distinct capabilities:
-
-1. User management: create accounts, list users, deactivate, manage assignments.
-2. Plan overrides: read any client's plan (bypassing assignment check) and apply
-   an administrative override with a mandatory reason string.
-
-Design choice — override view uses repos directly, bypassing service assignment check:
-    FitnessTrainerService and MasterCoachService both check their assignment before
-    any read. Super admin has no assignment — they bypass the check by calling the
-    repo directly. This is not a layering violation: reading data for display is a
-    presentation-layer orchestration concern, not business logic. The actual override
-    write goes through SuperAdminService, which enforces the mandatory reason.
+Admin routes — presentation/api/routes/admin.py
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.services.super_admin_service import SuperAdminService
-from domain.entities.enums import UserRole
+from core.exceptions import ForbiddenError, NotFoundError
+from domain.entities.enums import StaffRole, UserRole
+from domain.entities.user import User
+from infrastructure.repositories.assignment_repository import (
+    ClientStaffAssignmentRepository,
+)
 from infrastructure.repositories.diet_repository import (
     DietEntryRepository,
     DietPlanRepository,
@@ -28,223 +22,235 @@ from infrastructure.repositories.diet_repository import (
 from infrastructure.repositories.workout_repository import (
     ProgramDayRepository,
     ProgramWeekRepository,
+    WorkoutLogRepository,
     WorkoutPrescriptionRepository,
     WorkoutProgramRepository,
 )
 from presentation.api.dependencies import (
-    get_day_repo,
-    get_diet_repo,
-    get_entry_repo,
-    get_prescription_repo,
+    get_assignment_service,
+    get_db,
     get_super_admin_service,
-    get_week_repo,
-    get_workout_repo,
+    get_user_repo,
 )
-from presentation.api.schemas.diet_schema import DietPlanResponse
-from presentation.api.schemas.user_schema import (
-    AssignmentResponse,
+from presentation.api.schemas.admin_schema import (
     AssignStaffRequest,
+    AssignmentResponse,
+    ClientAssignmentsResponse,
     CreateUserRequest,
-    OverrideWorkoutRequest,
-    PaginatedUsersResponse,
+    EndAssignmentRequest,
+    OverrideReasonRequest,
+    UserListResponse,
     UserResponse,
 )
-from presentation.api.schemas.workout_schema import (
-    ProgramDayResponse,
-    ProgramWeekResponse,
-    WorkoutProgramResponse,
-)
-from presentation.middleware.auth_guard import CurrentUser, require_role
+from presentation.middleware.auth_guard import get_current_user
 
 router = APIRouter()
 
-_require_admin = Depends(require_role(UserRole.SUPER_ADMIN))
+
+# ── Role guard ────────────────────────────────────────────────────────────────
+
+
+async def require_super_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise ForbiddenError("Super admin access required.")
+    return current_user
 
 
 # ── User management ───────────────────────────────────────────────────────────
 
 
-@router.get("/users", response_model=PaginatedUsersResponse, summary="List all clients")
-async def list_clients(
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    role: str | None = Query(None),
+    is_active: bool | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
-) -> PaginatedUsersResponse:
-    clients = await service.list_clients(limit=limit, offset=offset)
-    all_clients = await service._user_repo.list_clients()
-    return PaginatedUsersResponse(
-        data=[UserResponse.from_entity(u) for u in clients],
-        total=len(all_clients),
+    _admin: User = Depends(require_super_admin),
+    user_repo=Depends(get_user_repo),
+) -> UserListResponse:
+    users, total = await user_repo.list_all(
+        role=role, is_active=is_active, limit=limit, offset=offset
+    )
+    return UserListResponse(
+        users=[UserResponse.model_validate(u, from_attributes=True) for u in users],
+        total=total,
         limit=limit,
         offset=offset,
     )
 
 
-@router.get(
-    "/staff", response_model=list[UserResponse], summary="List all coaching staff"
-)
-async def list_staff(
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
-) -> list[UserResponse]:
-    staff = await service.list_staff()
-    return [UserResponse.from_entity(u) for u in staff]
-
-
-@router.post(
-    "/users",
-    response_model=UserResponse,
-    status_code=201,
-    summary="Create a new user account",
-)
+@router.post("/users", response_model=UserResponse, status_code=201)
 async def create_user(
     body: CreateUserRequest,
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
+    admin: User = Depends(require_super_admin),
+    svc: SuperAdminService = Depends(get_super_admin_service),
 ) -> UserResponse:
-    user = await service.create_user(
+    user = await svc.create_user(
         email=body.email,
         password=body.password,
         full_name=body.full_name,
         role=body.role,
     )
-    return UserResponse.from_entity(user)
+    return UserResponse.model_validate(user, from_attributes=True)
 
 
-@router.get("/users/{user_id}", response_model=UserResponse, summary="Get a user by ID")
+@router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
+    _admin: User = Depends(require_super_admin),
+    user_repo=Depends(get_user_repo),
 ) -> UserResponse:
-    user = await service.get_user(user_id)
-    return UserResponse.from_entity(user)
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise NotFoundError(f"User {user_id} not found")
+    return UserResponse.model_validate(user, from_attributes=True)
 
 
-@router.post(
-    "/users/{user_id}/deactivate",
-    status_code=204,
-    summary="Deactivate a user account and revoke all sessions",
-)
+@router.post("/users/{user_id}/deactivate", status_code=204)
 async def deactivate_user(
     user_id: UUID,
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
+    _admin: User = Depends(require_super_admin),
+    svc: SuperAdminService = Depends(get_super_admin_service),
 ) -> None:
-    await service.deactivate_user(user_id)
+    await svc.deactivate_user(user_id)
 
 
-# ── Assignment management ──────────────────────────────────────────────────────
+# ── Assignment management ─────────────────────────────────────────────────────
+
+
+@router.get("/users/{client_id}/assignments", response_model=ClientAssignmentsResponse)
+async def get_client_assignments(
+    client_id: UUID,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+) -> ClientAssignmentsResponse:
+    repo = ClientStaffAssignmentRepository(session)
+    active = await repo.get_active_for_client(client_id)
+    by_role: dict[str, AssignmentResponse] = {
+        a.staff_role: AssignmentResponse.model_validate(a, from_attributes=True)
+        for a in active
+    }
+    return ClientAssignmentsResponse(
+        fitness_trainer=by_role.get(StaffRole.FITNESS_TRAINER),
+        nutritionist=by_role.get(StaffRole.NUTRITIONIST),
+        master_coach=by_role.get(StaffRole.MASTER_COACH),
+    )
 
 
 @router.post(
-    "/users/{client_id}/assignments",
-    response_model=AssignmentResponse,
-    status_code=201,
-    summary="Assign a coaching staff member to a client",
+    "/users/{client_id}/assignments", response_model=AssignmentResponse, status_code=201
 )
 async def assign_staff(
     client_id: UUID,
     body: AssignStaffRequest,
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
+    admin: User = Depends(require_super_admin),
+    assignment_svc=Depends(get_assignment_service),
 ) -> AssignmentResponse:
-    assignment = await service.assign_staff_to_client(
+    assignment = await assignment_svc.assign_staff(
         client_id=client_id,
         staff_id=body.staff_id,
-        staff_role=body.staff_role,
-        admin_id=current_user.id,
+        staff_role=StaffRole(body.staff_role),
+        assigned_by=admin.id,
     )
-    return AssignmentResponse.from_entity(assignment)  # type: ignore[arg-type]
+    return AssignmentResponse.model_validate(assignment, from_attributes=True)
 
 
-@router.delete(
-    "/assignments/{assignment_id}",
-    status_code=204,
-    summary="End an active coaching assignment",
-)
+@router.delete("/assignments/{assignment_id}", status_code=204)
 async def end_assignment(
     assignment_id: UUID,
-    reason: str = Query(default="removed by admin"),
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
+    body: EndAssignmentRequest,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
 ) -> None:
-    await service.end_staff_assignment(
+    repo = ClientStaffAssignmentRepository(session)
+    await repo.end_assignment(
         assignment_id=assignment_id,
-        reason=reason,
+        ended_at=datetime.now(tz=timezone.utc),
+        ended_reason=body.ended_reason,
     )
 
 
-# ── Override views ─────────────────────────────────────────────────────────────
+# ── Plan read ─────────────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/clients/{client_id}/workout",
-    response_model=WorkoutProgramResponse,
-    summary="Read any client's workout programme (admin override view)",
-)
-async def get_client_workout_override_view(
+@router.get("/clients/{client_id}/workout")
+async def get_client_workout(
     client_id: UUID,
-    current_user: CurrentUser = _require_admin,
-    workout_repo: WorkoutProgramRepository = Depends(get_workout_repo),
-    week_repo: ProgramWeekRepository = Depends(get_week_repo),
-    day_repo: ProgramDayRepository = Depends(get_day_repo),
-    prescription_repo: WorkoutPrescriptionRepository = Depends(get_prescription_repo),
-) -> WorkoutProgramResponse:
-    program = await workout_repo.get_active_by_owner(client_id)
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    from presentation.api.schemas.workout_schema import (
+        ProgramDayResponse,
+        ProgramWeekResponse,
+        WorkoutProgramResponse,
+    )
+
+    prog_repo = WorkoutProgramRepository(session)
+    week_repo = ProgramWeekRepository(session)
+    day_repo = ProgramDayRepository(session)
+    pres_repo = WorkoutPrescriptionRepository(session)
+    log_repo = WorkoutLogRepository(session)
+
+    program = await prog_repo.get_active_by_owner(client_id)
     if program is None:
-        raise HTTPException(
-            404, detail=f"No active workout programme for client {client_id}"
-        )
+        raise NotFoundError(f"No active programme for client {client_id}")
+
     weeks = await week_repo.list_by_program(program.id)
     week_responses = []
     for week in weeks:
         days = await day_repo.list_by_week(week.id)
         day_responses = []
         for day in days:
-            prescriptions = await prescription_repo.list_by_day(day.id)
-            day_responses.append(ProgramDayResponse.from_entities(day, prescriptions))
+            prescriptions = await pres_repo.list_by_day(day.id)
+            logs_by_pres = {
+                p.id: await log_repo.list_by_prescription(p.id) for p in prescriptions
+            }
+            day_responses.append(
+                ProgramDayResponse.from_entities(day, prescriptions, logs_by_pres)
+            )
         week_responses.append(ProgramWeekResponse.from_entities(week, day_responses))
-    return WorkoutProgramResponse.from_entity(program, week_responses)
+
+    return WorkoutProgramResponse.from_entities(program, week_responses).model_dump()
 
 
-@router.post(
-    "/clients/{client_id}/workout/override",
-    response_model=WorkoutProgramResponse,
-    summary="Apply an administrative override to a client's workout programme",
-)
+@router.get("/clients/{client_id}/diet")
+async def get_client_diet(
+    client_id: UUID,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    from presentation.api.schemas.diet_schema import DietPlanResponse
+
+    plan_repo = DietPlanRepository(session)
+    entry_repo = DietEntryRepository(session)
+
+    plan = await plan_repo.get_active_by_owner(client_id)
+    if plan is None:
+        raise NotFoundError(f"No active diet plan for client {client_id}")
+
+    entries = await entry_repo.list_by_plan(plan.id)
+    return DietPlanResponse.from_entities(plan, entries).model_dump()
+
+
+# ── Plan override ─────────────────────────────────────────────────────────────
+
+
+@router.post("/clients/{client_id}/workout/override")
 async def override_workout(
     client_id: UUID,
-    body: OverrideWorkoutRequest,
-    current_user: CurrentUser = _require_admin,
-    service: SuperAdminService = Depends(get_super_admin_service),
-) -> WorkoutProgramResponse:
-    """
-    Record a super-admin override. Requires a non-empty reason string.
-    Writes a PlanVersion snapshot and an OVERRIDE_APPLIED activity log entry.
-    """
-    program = await service.override_workout_programme(
-        program_id=body.program_id,
+    body: OverrideReasonRequest,
+    admin: User = Depends(require_super_admin),
+    svc: SuperAdminService = Depends(get_super_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    program = await WorkoutProgramRepository(session).get_active_by_owner(client_id)
+    if program is None:
+        raise NotFoundError(f"No active programme for client {client_id}")
+    saved = await svc.override_workout_programme(
+        program_id=program.id,
         override_reason=body.override_reason,
-        admin_id=current_user.id,
+        admin_id=admin.id,
     )
-    return WorkoutProgramResponse.from_entity(program)
-
-
-@router.get(
-    "/clients/{client_id}/diet",
-    response_model=DietPlanResponse,
-    summary="Read any client's diet plan (admin override view)",
-)
-async def get_client_diet_override_view(
-    client_id: UUID,
-    current_user: CurrentUser = _require_admin,
-    diet_repo: DietPlanRepository = Depends(get_diet_repo),
-    entry_repo: DietEntryRepository = Depends(get_entry_repo),
-) -> DietPlanResponse:
-    plan = await diet_repo.get_active_by_owner(client_id)
-    if plan is None:
-        raise HTTPException(404, detail=f"No active diet plan for client {client_id}")
-    entries = await entry_repo.list_by_plan(plan.id)
-    return DietPlanResponse.from_entity(plan, entries)
+    return {"id": str(saved.id), "override_reason": saved.override_reason}

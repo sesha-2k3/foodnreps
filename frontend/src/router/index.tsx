@@ -46,6 +46,8 @@ import CoachClientDiet from '../pages/coach/ClientDiet';
 // ── Admin pages ───────────────────────────────────────────────────────────────
 import AdminUserList from '../pages/admin/UserList';
 import AdminUserDetail from '../pages/admin/UserDetail';
+import AssignmentManager from '../pages/admin/AssignmentManager';
+import PlanOverride from '../pages/admin/PlanOverride';
 
 // ── Personal plan pages ───────────────────────────────────────────────────────
 import PersonalWorkout from '../pages/personal/PersonalWorkout';
@@ -121,13 +123,31 @@ export const router = createBrowserRouter([
   },
 
   // ── Super Admin ───────────────────────────────────────────────────────────────
+  // NOTE: /admin/users/new must appear before /admin/users/:id so the router
+  // does not treat the literal "new" as a UUID param.
   {
     path: '/admin/users',
     element: <RequireRole roles={['super_admin']}><AdminUserList /></RequireRole>,
   },
   {
+    path: '/admin/users/new',
+    element: <RequireRole roles={['super_admin']}><AdminUserDetail /></RequireRole>,
+  },
+  {
     path: '/admin/users/:id',
     element: <RequireRole roles={['super_admin']}><AdminUserDetail /></RequireRole>,
+  },
+  {
+    path: '/admin/users/:id/assignments',
+    element: <RequireRole roles={['super_admin']}><AssignmentManager /></RequireRole>,
+  },
+  {
+    path: '/admin/clients/:id/workout',
+    element: <RequireRole roles={['super_admin']}><PlanOverride /></RequireRole>,
+  },
+  {
+    path: '/admin/clients/:id/diet',
+    element: <RequireRole roles={['super_admin']}><PlanOverride /></RequireRole>,
   },
 
   // ── Catch-all ─────────────────────────────────────────────────────────────────

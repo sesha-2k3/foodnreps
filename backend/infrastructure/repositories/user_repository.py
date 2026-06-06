@@ -22,7 +22,7 @@ Design choice — update by mutating the existing model, not delete+insert:
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.user import RefreshToken, User
@@ -122,6 +122,35 @@ class UserRepository(IUserRepository):
         )
         result = await self._session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars()]
+
+    async def list_all(
+        self,
+        role: str | None = None,
+        is_active: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list["User"], int]:
+        from sqlalchemy import func
+
+        base_filter = [UserModel.is_deleted == False]  # noqa: E712
+        if role is not None:
+            base_filter.append(UserModel.role == role)
+        if is_active is not None:
+            base_filter.append(UserModel.is_active == is_active)
+
+        stmt = (
+            select(UserModel)
+            .where(*base_filter)
+            .order_by(UserModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        count_stmt = select(func.count()).select_from(UserModel).where(*base_filter)
+
+        rows = await self._session.execute(stmt)
+        total = await self._session.execute(count_stmt)
+        users = [self._to_entity(m) for m in rows.scalars()]
+        return users, total.scalar_one()
 
 
 class RefreshTokenRepository(IRefreshTokenRepository):

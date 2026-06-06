@@ -71,6 +71,21 @@ class IUserRepository(ABC):
         """All non-deleted users with coaching roles."""
         ...
 
+    @abstractmethod
+    async def list_all(
+        self,
+        role: str | None = None,
+        is_active: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[User], int]:
+        """
+        Paginated user list for super admin.
+        Returns (users, total_count).
+        Filters by role and/or is_active if provided.
+        """
+        ...
+
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 

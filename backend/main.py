@@ -141,7 +141,7 @@ app.include_router(client.router, prefix="/client", tags=["Client"])
 app.include_router(trainer.router, prefix="/trainer", tags=["Trainer"])
 app.include_router(nutritionist.router, prefix="/nutritionist", tags=["Nutritionist"])
 app.include_router(coach.router, prefix="/coach", tags=["Master Coach"])
-app.include_router(admin.router, prefix="/admin", tags=["Super Admin"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(personal.router, prefix="/personal", tags=["Personal Plans"])
 app.include_router(invites_router, tags=["Invites"])
 
