@@ -3,18 +3,19 @@ Admin request/response schemas — presentation/api/schemas/admin_schema.py
 """
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-
 # ── User management ───────────────────────────────────────────────────────────
+
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: str  # UserRole string value
+    role: str
 
     @field_validator("password")
     @classmethod
@@ -44,9 +45,10 @@ class UserListResponse(BaseModel):
 
 # ── Assignment management ─────────────────────────────────────────────────────
 
+
 class AssignStaffRequest(BaseModel):
     staff_id: UUID
-    staff_role: str  # StaffRole string value
+    staff_role: str
 
 
 class AssignmentResponse(BaseModel):
@@ -66,7 +68,6 @@ class EndAssignmentRequest(BaseModel):
 
 
 class ClientAssignmentsResponse(BaseModel):
-    """All active assignments for a client, keyed by role."""
     fitness_trainer: AssignmentResponse | None = None
     nutritionist: AssignmentResponse | None = None
     master_coach: AssignmentResponse | None = None
@@ -74,8 +75,37 @@ class ClientAssignmentsResponse(BaseModel):
 
 # ── Plan override ─────────────────────────────────────────────────────────────
 
-class OverrideReasonRequest(BaseModel):
+
+class PrescriptionPatch(BaseModel):
+    """
+    One prescription's worth of changes.
+    All fields except prescription_id are optional — only send what changed.
+    Pydantic v2 coerces JSON floats to Decimal automatically.
+    """
+
+    prescription_id: UUID
+    working_sets: int | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
+    reps_note: str | None = None
+    prescribed_load_kg: Decimal | None = None
+    prescribed_load_text: str | None = None
+    prescribed_rpe: Decimal | None = None
+    prescribed_rir: int | None = None
+    rest_seconds: int | None = None
+    instructions: str | None = None
+
+
+class OverrideWorkoutRequest(BaseModel):
+    """
+    Atomic override: reason + all prescription patches submitted together.
+    The reason is stored in plan_versions.change_reason and
+    workout_programs.override_reason. Changes are applied before the
+    version record is written so the snapshot reflects the post-override state.
+    """
+
     override_reason: str
+    changes: list[PrescriptionPatch] = []
 
     @field_validator("override_reason")
     @classmethod
