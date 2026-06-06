@@ -8,7 +8,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-
 # ── Responses ─────────────────────────────────────────────────────────────────
 
 class InviteResponse(BaseModel):
