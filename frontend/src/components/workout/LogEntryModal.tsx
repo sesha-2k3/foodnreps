@@ -33,16 +33,44 @@
  *   Coaches and clients think in minutes ("took 20 minutes"). The schema
  *   stores seconds (time_taken_seconds) for precision. minutesToSeconds()
  *   handles both "20" (→ 1200s) and "1:30" (→ 90s) formats.
+ *
+ * LogEntryModal — workout logging form.
+ *
+ * Sprint 8+ additions:
+ *
+ * 1. Prescription pre-fill on exercise selection:
+ *    When the client selects an exercise, the Sets, Reps, and Load fields
+ *    auto-populate from the trainer's prescription. For range reps (6–8),
+ *    reps pre-fills with reps_min (the lower bound). For open-ended reps
+ *    (AMRAP), reps is left blank — the client fills in what they achieved.
+ *    For descriptor load (BW, Strict), load is left blank.
+ *
+ * 2. Edit mode for same-day logs:
+ *    When the client selects an exercise that already has a log for today,
+ *    the modal switches to edit mode: all fields pre-fill from the existing
+ *    log, the title changes to "Edit log entry", and submitting calls
+ *    PATCH /client/workout-logs/:id instead of POST /client/workout-logs.
+ *    This prevents a client from accidentally creating duplicate entries
+ *    for the same exercise on the same day.
  */
 
 import React, { useState, useEffect } from 'react';
 import { useLogWorkout } from '../../hooks/useLogWorkout';
-import { computeTonnage, formatLiveTonnage, todayIso, minutesToSeconds } from '../../utils/format';
-import type { ProgramDayResponse, WorkoutPrescriptionResponse } from '../../types/api';
+import { useUpdateWorkoutLog } from '../../hooks/useUpdateWorkoutLog';
+import {
+  computeTonnage,
+  formatLiveTonnage,
+  todayIso,
+  minutesToSeconds,
+} from '../../utils/format';
+import type {
+  ProgramDayResponse,
+  WorkoutPrescriptionResponse,
+  WorkoutLogResponse,
+} from '../../types/api';
 
 interface LogEntryModalProps {
   day: ProgramDayResponse;
-  /** If provided, pre-selects this prescription in the dropdown. */
   defaultPrescriptionId?: string;
   onClose: () => void;
 }
@@ -61,49 +89,147 @@ interface FormState {
   clientNotes: string;
 }
 
-const INITIAL_FORM: FormState = {
-  prescriptionId: '',
-  isOrphanEntry: false,
-  orphanExerciseName: '',
-  loggedAt: todayIso(),
-  actualSets: '',
-  actualReps: '',
-  actualLoadKg: '',
-  actualRpe: '',
-  readiness: null,
-  timeMinutes: '',
-  clientNotes: '',
-};
+function buildDefaultForm(
+  prescriptionId: string,
+  prescription?: WorkoutPrescriptionResponse,
+  existingLog?: WorkoutLogResponse,
+): FormState {
+  if (existingLog) {
+    // Edit mode — pre-fill from the existing log
+    return {
+      prescriptionId,
+      isOrphanEntry: false,
+      orphanExerciseName: '',
+      loggedAt: existingLog.logged_at,
+      actualSets: String(existingLog.actual_sets),
+      actualReps: String(existingLog.actual_reps),
+      actualLoadKg: existingLog.actual_load_kg
+        ? String(parseFloat(existingLog.actual_load_kg))
+        : '',
+      actualRpe: existingLog.actual_rpe
+        ? String(parseFloat(existingLog.actual_rpe))
+        : '',
+      readiness: existingLog.readiness,
+      timeMinutes: existingLog.time_taken_seconds
+        ? String(Math.round(existingLog.time_taken_seconds / 60))
+        : '',
+      clientNotes: existingLog.client_notes ?? '',
+    };
+  }
 
-export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryModalProps) {
-  const { mutateAsync, isPending, isError, error } = useLogWorkout();
-  const [form, setForm] = useState<FormState>({
-    ...INITIAL_FORM,
-    prescriptionId: defaultPrescriptionId ?? (day.prescriptions[0]?.id ?? ''),
+  if (prescription) {
+    // New entry — pre-fill from prescription defaults
+    return {
+      prescriptionId,
+      isOrphanEntry: false,
+      orphanExerciseName: '',
+      loggedAt: todayIso(),
+      // Sets → working sets
+      actualSets: prescription.working_sets ? String(prescription.working_sets) : '',
+      // Reps → reps_min for fixed/range, blank for open-ended
+      actualReps: prescription.reps_min ? String(prescription.reps_min) : '',
+      // Load → kg value only; descriptor loads (BW, Strict) left blank
+      actualLoadKg: prescription.prescribed_load_kg
+        ? String(parseFloat(prescription.prescribed_load_kg))
+        : '',
+      actualRpe: '',
+      readiness: null,
+      timeMinutes: '',
+      clientNotes: '',
+    };
+  }
+
+  // No prescription context — empty form
+  return {
+    prescriptionId,
+    isOrphanEntry: false,
+    orphanExerciseName: '',
     loggedAt: todayIso(),
-  });
+    actualSets: '',
+    actualReps: '',
+    actualLoadKg: '',
+    actualRpe: '',
+    readiness: null,
+    timeMinutes: '',
+    clientNotes: '',
+  };
+}
+
+/** Find a log for today's date for a specific prescription. */
+function findTodayLog(
+  prescription: WorkoutPrescriptionResponse,
+): WorkoutLogResponse | null {
+  const today = todayIso();
+  return prescription.logs.find((l) => l.logged_at === today) ?? null;
+}
+
+export function LogEntryModal({
+  day,
+  defaultPrescriptionId,
+  onClose,
+}: LogEntryModalProps) {
+  const createLog = useLogWorkout();
+  const updateLog = useUpdateWorkoutLog();
+
+  const isPending = createLog.isPending || updateLog.isPending;
+  const isError = createLog.isError || updateLog.isError;
+  const error = createLog.error ?? updateLog.error;
+
+  // Determine initial prescription
+  const initialPrescriptionId =
+    defaultPrescriptionId ?? (day.prescriptions[0]?.id ?? '');
+  const initialPrescription = day.prescriptions.find(
+    (p) => p.id === initialPrescriptionId,
+  );
+  const initialExistingLog = initialPrescription
+    ? findTodayLog(initialPrescription)
+    : null;
+
+  const [editingLogId, setEditingLogId] = useState<string | null>(
+    initialExistingLog?.id ?? null,
+  );
+  const [form, setForm] = useState<FormState>(
+    buildDefaultForm(initialPrescriptionId, initialPrescription ?? undefined, initialExistingLog ?? undefined),
+  );
 
   // Live tonnage preview
-  const liveTonnage = computeTonnage(form.actualSets, form.actualReps, form.actualLoadKg || null);
+  const liveTonnage = computeTonnage(
+    form.actualSets,
+    form.actualReps,
+    form.actualLoadKg || null,
+  );
 
-  // Close on Escape key
+  // Close on Escape
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  function update(field: keyof FormState, value: FormState[keyof FormState]) {
+  function update<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  /** Called when the user picks a different exercise from the dropdown. */
+  function handlePrescriptionSelect(prescriptionId: string) {
+    const prescription = day.prescriptions.find((p) => p.id === prescriptionId);
+    if (!prescription) return;
+
+    const existingLog = findTodayLog(prescription);
+    setEditingLogId(existingLog?.id ?? null);
+    setForm(buildDefaultForm(prescriptionId, prescription, existingLog ?? undefined));
   }
 
   function validate(): string | null {
     if (!form.isOrphanEntry && !form.prescriptionId) return 'Select an exercise.';
-    if (form.isOrphanEntry && !form.orphanExerciseName.trim()) return 'Enter an exercise name.';
-    const sets = parseInt(form.actualSets);
-    const reps = parseInt(form.actualReps);
-    if (!form.actualSets || sets < 1) return 'Sets must be at least 1.';
-    if (!form.actualReps || reps < 1) return 'Reps must be at least 1.';
+    if (form.isOrphanEntry && !form.orphanExerciseName.trim())
+      return 'Enter an exercise name.';
+    if (!form.actualSets || parseInt(form.actualSets) < 1)
+      return 'Sets must be at least 1.';
+    if (!form.actualReps || parseInt(form.actualReps) < 1)
+      return 'Reps must be at least 1.';
     if (form.actualRpe) {
       const rpe = parseFloat(form.actualRpe);
       if (isNaN(rpe) || rpe < 1 || rpe > 10) return 'RPE must be between 1 and 10.';
@@ -114,46 +240,83 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validationError = validate();
-    if (validationError) { alert(validationError); return; }
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
 
-    const selectedPrescription: WorkoutPrescriptionResponse | undefined = day.prescriptions.find(
+    const selectedPrescription = day.prescriptions.find(
       (p) => p.id === form.prescriptionId,
     );
 
-    await mutateAsync({
-      prescription_id: form.isOrphanEntry ? null : form.prescriptionId,
-      exercise_name: form.isOrphanEntry
-        ? form.orphanExerciseName.trim()
-        : (selectedPrescription?.exercise_name ?? null),
-      logged_at: form.loggedAt,
-      actual_sets: parseInt(form.actualSets),
-      actual_reps: parseInt(form.actualReps),
-      actual_load_kg: form.actualLoadKg ? parseFloat(form.actualLoadKg) : null,
-      actual_rpe: form.actualRpe ? parseFloat(form.actualRpe) : null,
-      readiness: form.readiness,
-      time_taken_seconds: minutesToSeconds(form.timeMinutes),
-      client_notes: form.clientNotes.trim() || null,
-    });
+    const actualSets = parseInt(form.actualSets);
+    const actualReps = parseInt(form.actualReps);
+    const actualLoadKg = form.actualLoadKg ? parseFloat(form.actualLoadKg) : null;
+    const actualRpe = form.actualRpe ? parseFloat(form.actualRpe) : null;
+    const timeTakenSeconds = minutesToSeconds(form.timeMinutes);
+
+    if (editingLogId) {
+      // Edit mode — PATCH existing log
+      await updateLog.mutateAsync({
+        logId: editingLogId,
+        data: {
+          actual_sets: actualSets,
+          actual_reps: actualReps,
+          actual_load_kg: actualLoadKg,
+          actual_rpe: actualRpe,
+          readiness: form.readiness,
+          time_taken_seconds: timeTakenSeconds,
+          client_notes: form.clientNotes.trim() || null,
+          logged_at: form.loggedAt,
+        },
+      });
+    } else {
+      // New entry — POST
+      await createLog.mutateAsync({
+        prescription_id: form.isOrphanEntry ? null : form.prescriptionId,
+        exercise_name: form.isOrphanEntry
+          ? form.orphanExerciseName.trim()
+          : (selectedPrescription?.exercise_name ?? null),
+        logged_at: form.loggedAt,
+        actual_sets: actualSets,
+        actual_reps: actualReps,
+        actual_load_kg: actualLoadKg,
+        actual_rpe: actualRpe,
+        readiness: form.readiness,
+        time_taken_seconds: timeTakenSeconds,
+        client_notes: form.clientNotes.trim() || null,
+      });
+    }
 
     onClose();
   }
 
+  const isEditMode = !!editingLogId;
+
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      {/* Dimmed overlay */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
 
-      {/* Modal panel */}
       <div className="relative z-10 w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Log workout</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{day.label}</p>
+            <h2 className="text-base font-semibold text-gray-900">
+              {isEditMode ? 'Edit log entry' : 'Log workout'}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {day.label}
+              {isEditMode && (
+                <span className="ml-2 text-amber-600 font-medium">
+                  · Editing today's entry
+                </span>
+              )}
+            </p>
           </div>
           <button
             type="button"
@@ -178,7 +341,7 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
             {!form.isOrphanEntry ? (
               <select
                 value={form.prescriptionId}
-                onChange={(e) => update('prescriptionId', e.target.value)}
+                onChange={(e) => handlePrescriptionSelect(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                 required
               >
@@ -222,7 +385,7 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
             />
           </div>
 
-          {/* Sets × Reps × Load — three column layout */}
+          {/* Sets × Reps × Load */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
@@ -275,7 +438,8 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
           {/* Live tonnage preview */}
           <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
             <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <span className="text-xs text-gray-500">Volume:</span>
             <span className={`text-sm font-semibold tabular-nums ${liveTonnage ? 'text-gray-900' : 'text-gray-300'}`}>
@@ -283,7 +447,7 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
             </span>
           </div>
 
-          {/* RPE + Readiness row */}
+          {/* RPE + Readiness */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
@@ -309,14 +473,14 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
                   <button
                     key={n}
                     type="button"
-                    onClick={() => update('readiness', form.readiness === n ? null : n)}
-                    className={`
-                      flex-1 py-1.5 text-xs font-medium rounded transition-colors
-                      ${form.readiness === n
+                    onClick={() =>
+                      update('readiness', form.readiness === n ? null : n)
+                    }
+                    className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
+                      form.readiness === n
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }
-                    `}
+                    }`}
                   >
                     {n}
                   </button>
@@ -339,7 +503,7 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="col-span-1">
+            <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                 Notes
               </label>
@@ -353,15 +517,15 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
             </div>
           </div>
 
-          {/* Error message */}
+          {/* Error */}
           {isError && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-              {error?.message ?? 'Failed to save log. Please try again.'}
+              {(error as Error)?.message ?? 'Failed to save. Please try again.'}
             </p>
           )}
         </form>
 
-        {/* Footer actions */}
+        {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
           <button
             type="button"
@@ -373,12 +537,19 @@ export function LogEntryModal({ day, defaultPrescriptionId, onClose }: LogEntryM
           </button>
           <button
             type="submit"
-            form="log-entry-form"
             disabled={isPending}
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white ${
+              isEditMode
+                ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+            }`}
           >
-            {isPending ? 'Saving…' : 'Save entry'}
+            {isPending
+              ? 'Saving…'
+              : isEditMode
+              ? 'Update entry'
+              : 'Save entry'}
           </button>
         </div>
       </div>
