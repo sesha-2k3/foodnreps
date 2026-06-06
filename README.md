@@ -119,3 +119,14 @@ See the companion documents:
 | S8 — Coach + trainer views | Frontend | . |
 | S9 — Admin views | Frontend | . |
 | S10 — Cross-cutting features | Full stack | . |
+
+
+
+trainer: trainer@foodnreps.com / trainer123
+client: client@foodnreps.com / client123
+admin: admin@foodnreps.com / admin123
+
+```javascript
+fetch('/auth/logout', { method: 'POST', credentials: 'include' })
+  .then(() => { window.location.href = '/login'; })
+```
