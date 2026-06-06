@@ -62,24 +62,22 @@ interface CoachPrescriptionRow extends Record<string, unknown> {
   exercise_label: string;
   exercise_name: string;
   working_sets: string;
-  reps_min: string;
-  reps_max: string;
-  prescribed_load_kg: string;
+  reps_display: string;    // ← replaces reps_min + reps_max
+  load_display: string;    // ← replaces prescribed_load_kg
   prescribed_rpe: string;
   rest_display: string;
   instructions: string;
 }
 
 const COACH_PRESCRIPTION_COLUMNS: FitnessColumnDef<CoachPrescriptionRow>[] = [
-  { key: 'exercise_label',    header: '',           width: 36,  editable: false },
-  { key: 'exercise_name',     header: 'Exercise',               type: 'text'   },
-  { key: 'working_sets',      header: 'Sets',       width: 64,  type: 'number' },
-  { key: 'reps_min',          header: 'Reps min',   width: 80,  type: 'number' },
-  { key: 'reps_max',          header: 'Reps max',   width: 80,  type: 'number' },
-  { key: 'prescribed_load_kg',header: 'Load (kg)',  width: 90,  type: 'decimal' },
-  { key: 'prescribed_rpe',    header: 'RPE',        width: 72,  type: 'decimal' },
-  { key: 'rest_display',      header: 'Rest',       width: 80,  editable: false },
-  { key: 'instructions',      header: 'Notes',                  type: 'text'   },
+  { key: 'exercise_label', header: '',         width: 36,  editable: false },
+  { key: 'exercise_name',  header: 'Exercise',              type: 'text'   },
+  { key: 'working_sets',   header: 'Sets',     width: 64,  type: 'number' },
+  { key: 'reps_display',   header: 'Reps',     width: 100, editable: false },
+  { key: 'load_display',   header: 'Load',     width: 100, editable: false },
+  { key: 'prescribed_rpe', header: 'RPE',      width: 72,  type: 'decimal' },
+  { key: 'rest_display',   header: 'Rest',     width: 80,  editable: false },
+  { key: 'instructions',   header: 'Notes',               type: 'text'   },
 ];
 
 function toPrescriptionRow(p: WorkoutPrescriptionResponse): CoachPrescriptionRow {
@@ -88,9 +86,8 @@ function toPrescriptionRow(p: WorkoutPrescriptionResponse): CoachPrescriptionRow
     exercise_label: p.exercise_label,
     exercise_name: p.exercise_name,
     working_sets: p.working_sets != null ? String(p.working_sets) : '',
-    reps_min: p.reps_min != null ? String(p.reps_min) : '',
-    reps_max: p.reps_max != null ? String(p.reps_max) : '',
-    prescribed_load_kg: p.prescribed_load_kg != null ? String(p.prescribed_load_kg) : '',
+    reps_display: p.reps_display || '—',
+    load_display: p.load_display || 'BW',
     prescribed_rpe: p.prescribed_rpe != null ? String(p.prescribed_rpe) : '',
     rest_display: formatRest(p.rest_seconds),
     instructions: p.instructions ?? '',
@@ -99,16 +96,9 @@ function toPrescriptionRow(p: WorkoutPrescriptionResponse): CoachPrescriptionRow
 
 function rowToUpdateRequest(row: CoachPrescriptionRow): UpdatePrescriptionRequest {
   return {
-    exercise_name: row.exercise_name || undefined,
+    exercise_name: (row.exercise_name as string) || undefined,
     working_sets: row.working_sets ? parseInt(row.working_sets as string) : null,
-    reps_min: row.reps_min ? parseInt(row.reps_min as string) : null,
-    reps_max: row.reps_max ? parseInt(row.reps_max as string) : null,
-    prescribed_load_kg: row.prescribed_load_kg
-      ? parseFloat(row.prescribed_load_kg as string)
-      : null,
-    prescribed_rpe: row.prescribed_rpe
-      ? parseFloat(row.prescribed_rpe as string)
-      : null,
+    prescribed_rpe: row.prescribed_rpe ? parseFloat(row.prescribed_rpe as string) : null,
     instructions: (row.instructions as string) || null,
   };
 }
