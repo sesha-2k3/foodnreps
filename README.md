@@ -130,3 +130,34 @@ admin: admin@foodnreps.com / admin123
 fetch('/auth/logout', { method: 'POST', credentials: 'include' })
   .then(() => { window.location.href = '/login'; })
 ```
+
+```bash
+# Seed Script for creating roles in db
+cd backend && uv run python -c "
+import asyncio
+from infrastructure.db.session import AsyncSessionLocal
+from infrastructure.repositories.user_repository import UserRepository
+from core.security import hash_password
+from domain.entities.user import User
+from domain.entities.enums import UserRole
+from uuid import uuid4
+from datetime import datetime, timezone
+
+async def seed():
+    async with AsyncSessionLocal() as session:
+        repo = UserRepository(session)
+        user = User(
+            id=uuid4(), email='client@foodnreps.com',
+            password_hash=hash_password('client123'),
+            full_name='Test Client', role=UserRole.CLIENT,
+            is_active=True, is_deleted=False, deleted_at=None,
+            created_at=datetime.now(tz=timezone.utc),
+            updated_at=datetime.now(tz=timezone.utc),
+        )
+        await repo.save(user)
+        await session.commit()
+        print('Client created: client@foodnreps.com / client123')
+
+asyncio.run(seed())
+"
+```
