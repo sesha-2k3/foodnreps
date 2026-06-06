@@ -17,12 +17,14 @@ from infrastructure.repositories.user_repository import UserRepository
 from infrastructure.repositories.workout_repository import (
     ProgramDayRepository,
     ProgramWeekRepository,
+    WorkoutLogRepository,
     WorkoutPrescriptionRepository,
 )
 from presentation.api.dependencies import (
     get_coach_service,
     get_day_repo,
     get_entry_repo,
+    get_log_repo,
     get_prescription_repo,
     get_user_repo,
     get_week_repo,
@@ -77,6 +79,7 @@ async def get_client_workout(
     week_repo: ProgramWeekRepository = Depends(get_week_repo),
     day_repo: ProgramDayRepository = Depends(get_day_repo),
     prescription_repo: WorkoutPrescriptionRepository = Depends(get_prescription_repo),
+    log_repo: WorkoutLogRepository = Depends(get_log_repo),
 ) -> WorkoutProgramResponse:
     program = await service.get_client_workout(current_user.id, client_id)
     if program is None:
@@ -90,7 +93,15 @@ async def get_client_workout(
         day_responses = []
         for day in days:
             prescriptions = await prescription_repo.list_by_day(day.id)
-            day_responses.append(ProgramDayResponse.from_entities(day, prescriptions))
+            logs_by_prescription = {}
+            for prescription in prescriptions:
+                logs = await log_repo.list_by_prescription(prescription.id)
+                logs_by_prescription[prescription.id] = logs
+            day_responses.append(
+                ProgramDayResponse.from_entities(
+                    day, prescriptions, logs_by_prescription
+                )
+            )
         week_responses.append(ProgramWeekResponse.from_entities(week, day_responses))
     return WorkoutProgramResponse.from_entity(program, week_responses)
 
