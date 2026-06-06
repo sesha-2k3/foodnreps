@@ -33,6 +33,7 @@ from application.services.assignment_service import AssignmentService
 from application.services.auth_service import AuthService
 from application.services.client_service import ClientService
 from application.services.fitness_trainer_service import FitnessTrainerService
+from application.services.invite_service import InviteService
 from application.services.master_coach_service import MasterCoachService
 from application.services.nutritionist_service import NutritionistService
 from application.services.personal_plan_service import PersonalPlanService
@@ -45,6 +46,7 @@ from infrastructure.repositories.diet_repository import (
     DietEntryRepository,
     DietPlanRepository,
 )
+from infrastructure.repositories.invite_repository import CoachingInviteRepository
 from infrastructure.repositories.plan_repository import (
     PlanActivityLogRepository,
     PlanCommentRepository,
@@ -307,4 +309,18 @@ def get_super_admin_service(
         plan_version_repo=plan_version_repo,
         activity_log_repo=activity_log_repo,
         assignment_service=assignment_service,
+    )
+
+
+async def get_invite_service(
+    session: AsyncSession = Depends(get_session),
+) -> InviteService:
+    return InviteService(
+        invite_repo=CoachingInviteRepository(session),
+        assignment_service=AssignmentService(
+            assignment_repo=ClientStaffAssignmentRepository(session),
+            user_repo=UserRepository(session),
+        ),
+        assignment_repo=ClientStaffAssignmentRepository(session),
+        user_repo=UserRepository(session),
     )
