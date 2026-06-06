@@ -11,10 +11,10 @@
  *   plan data. Starting with it now avoids a migration later.
  *   BrowserRouter is simpler but cannot be incrementally upgraded.
  *
- * Design choice — stub imports for Sprint 6+ pages:
- *   All feature pages are imported as stub components in Sprint 5.
- *   They are replaced in Sprints 7–9 without any change to this file.
- *   The router is the stable scaffold; the pages are the variable parts.
+ * Design choice — :id param (not :clientId) on all coaching routes:
+ *   All coaching page components destructure useParams<{ id: string }>().
+ *   Using :id keeps the param name consistent across trainer, nutritionist,
+ *   and coach routes and matches the component expectation exactly.
  */
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
@@ -82,7 +82,7 @@ export const router = createBrowserRouter([
     element: <RequireRole roles={['fitness_trainer']}><TrainerClientList /></RequireRole>,
   },
   {
-    path: '/trainer/clients/:clientId/workout',
+    path: '/trainer/clients/:id/workout',
     element: <RequireRole roles={['fitness_trainer']}><TrainerClientWorkout /></RequireRole>,
   },
 
@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
     element: <RequireRole roles={['nutritionist']}><NutritionistClientList /></RequireRole>,
   },
   {
-    path: '/nutritionist/clients/:clientId/diet',
+    path: '/nutritionist/clients/:id/diet',
     element: <RequireRole roles={['nutritionist']}><NutritionistClientDiet /></RequireRole>,
   },
 
@@ -102,11 +102,11 @@ export const router = createBrowserRouter([
     element: <RequireRole roles={['master_coach']}><CoachClientList /></RequireRole>,
   },
   {
-    path: '/coach/clients/:clientId/workout',
+    path: '/coach/clients/:id/workout',
     element: <RequireRole roles={['master_coach']}><CoachClientWorkout /></RequireRole>,
   },
   {
-    path: '/coach/clients/:clientId/diet',
+    path: '/coach/clients/:id/diet',
     element: <RequireRole roles={['master_coach']}><CoachClientDiet /></RequireRole>,
   },
 
@@ -126,7 +126,7 @@ export const router = createBrowserRouter([
     element: <RequireRole roles={['super_admin']}><AdminUserList /></RequireRole>,
   },
   {
-    path: '/admin/users/:userId',
+    path: '/admin/users/:id',
     element: <RequireRole roles={['super_admin']}><AdminUserDetail /></RequireRole>,
   },
 
