@@ -116,7 +116,7 @@ See the companion documents:
 | S5 — Frontend foundation | Frontend | Complete |
 | S6 — FitnessTable component | Frontend | Complete |
 | S7 — Client views | Frontend | Complete |
-| S8 — Coach + trainer views | Frontend | . |
+| S8 — Coach + trainer views | Frontend | Complete | (invite system added along the flow)
 | S9 — Admin views | Frontend | . |
 | S10 — Cross-cutting features | Full stack | . |
 
@@ -161,3 +161,4 @@ async def seed():
 asyncio.run(seed())
 "
 ```
+CZ5-E4L
