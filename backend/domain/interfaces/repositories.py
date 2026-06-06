@@ -33,6 +33,7 @@ from uuid import UUID
 from domain.entities.assignment import ClientStaffAssignment
 from domain.entities.diet import DietEntry, DietPlan
 from domain.entities.enums import PlanType, StaffRole
+from domain.entities.invite import CoachingInvite
 from domain.entities.plan import PlanActivityLog, PlanComment, PlanVersion
 from domain.entities.profile import BodyMetric, IntakeProfile
 from domain.entities.user import RefreshToken, User
@@ -337,4 +338,45 @@ class IPlanActivityLogRepository(ABC):
     @abstractmethod
     async def save(self, log: PlanActivityLog) -> PlanActivityLog:
         """Always inserts — activity log is append-only."""
+        ...
+
+
+# ── Coaching Invite ────────────────────────────────────────────────────────
+
+
+class ICoachingInviteRepository(ABC):
+    @abstractmethod
+    async def get_by_code(self, code: str) -> CoachingInvite | None:
+        """Lookup by the human-readable code string. Case-insensitive."""
+        ...
+
+    @abstractmethod
+    async def get_by_id(self, invite_id: UUID) -> CoachingInvite | None: ...
+
+    @abstractmethod
+    async def list_active_by_staff(self, staff_id: UUID) -> list[CoachingInvite]:
+        """
+        Active = not yet used AND not yet expired.
+        Ordered most recent first.
+        """
+        ...
+
+    @abstractmethod
+    async def save(self, invite: CoachingInvite) -> CoachingInvite:
+        """Always inserts — invites are never updated, only marked used or deleted."""
+        ...
+
+    @abstractmethod
+    async def mark_used(
+        self,
+        invite_id: UUID,
+        used_by: UUID,
+        used_at: datetime,
+    ) -> None:
+        """Set used_at and used_by on the invite row."""
+        ...
+
+    @abstractmethod
+    async def delete(self, invite_id: UUID) -> None:
+        """Hard delete — used to revoke an unused invite."""
         ...
