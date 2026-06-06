@@ -140,6 +140,34 @@ class WorkoutProgramRepository(IWorkoutProgramRepository):
         await self._session.refresh(model)
         return self._to_entity(model)
 
+    async def get_active_assigned_by_owner(
+        self, owner_id: UUID
+    ) -> WorkoutProgram | None:
+        """Returns the trainer/coach-assigned programme (is_personal=False)."""
+        stmt = select(WorkoutProgramModel).where(
+            WorkoutProgramModel.owner_id == owner_id,
+            WorkoutProgramModel.is_active == True,  # noqa: E712
+            WorkoutProgramModel.is_template == False,  # noqa: E712
+            WorkoutProgramModel.is_personal == False,  # noqa: E712
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
+    async def get_active_personal_by_owner(
+        self, owner_id: UUID
+    ) -> WorkoutProgram | None:
+        """Returns the self-managed personal programme (is_personal=True)."""
+        stmt = select(WorkoutProgramModel).where(
+            WorkoutProgramModel.owner_id == owner_id,
+            WorkoutProgramModel.is_active == True,  # noqa: E712
+            WorkoutProgramModel.is_template == False,  # noqa: E712
+            WorkoutProgramModel.is_personal == True,  # noqa: E712
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
 
 class ProgramWeekRepository(IProgramWeekRepository):
     def __init__(self, session: AsyncSession) -> None:
