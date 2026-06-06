@@ -300,6 +300,7 @@ def get_super_admin_service(
     plan_version_repo: PlanVersionRepository = Depends(get_plan_version_repo),
     activity_log_repo: PlanActivityLogRepository = Depends(get_activity_log_repo),
     assignment_service: AssignmentService = Depends(get_assignment_service),
+    prescription_repo: WorkoutPrescriptionRepository = Depends(get_prescription_repo),
 ) -> SuperAdminService:
     return SuperAdminService(
         user_repo=user_repo,
@@ -309,6 +310,7 @@ def get_super_admin_service(
         plan_version_repo=plan_version_repo,
         activity_log_repo=activity_log_repo,
         assignment_service=assignment_service,
+        prescription_repo=prescription_repo,
     )
 
 
