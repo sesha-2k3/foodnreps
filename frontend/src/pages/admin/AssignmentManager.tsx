@@ -23,7 +23,7 @@ interface StaffSelectorProps {
   clientId: string;
 }
 
-function StaffSlot({ role, current, disabled, clientId }: StaffSelectorProps) {
+export function StaffSlot({ role, current, disabled, clientId }: StaffSelectorProps) {
   const [selecting, setSelecting] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [error, setError] = useState<string | null>(null);

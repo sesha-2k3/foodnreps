@@ -12,7 +12,7 @@ type PlanMode = "workout" | "diet";
 // read+audit view, not a client-facing view, so the full FitnessTable facade
 // is unnecessary overhead.
 
-function WorkoutReadOnly({ data }: { data: Record<string, unknown> }) {
+export function WorkoutReadOnly({ data }: { data: Record<string, unknown> }) {
   const weeks = (data.weeks ?? []) as Record<string, unknown>[];
   if (weeks.length === 0) {
     return <p className="text-gray-400 italic text-sm">No weeks in this programme.</p>;
@@ -62,7 +62,7 @@ function WorkoutReadOnly({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-function DietReadOnly({ data }: { data: Record<string, unknown> }) {
+export function DietReadOnly({ data }: { data: Record<string, unknown> }) {
   const entries = (data.entries ?? []) as Record<string, unknown>[];
   if (entries.length === 0) {
     return <p className="text-gray-400 italic text-sm">No diet entries.</p>;
