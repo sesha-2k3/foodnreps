@@ -17,6 +17,25 @@ export interface ClientAssignmentsResponse {
   master_coach: AssignmentResponse | null;
 }
 
+export interface PrescriptionPatch {
+  prescription_id: string;
+  working_sets?: number | null;
+  reps_min?: number | null;
+  reps_max?: number | null;
+  reps_note?: string | null;
+  prescribed_load_kg?: number | null;
+  prescribed_load_text?: string | null;
+  prescribed_rpe?: number | null;
+  prescribed_rir?: number | null;
+  rest_seconds?: number | null;
+  instructions?: string | null;
+}
+
+export interface OverrideWorkoutPayload {
+  override_reason: string;
+  changes: PrescriptionPatch[];
+}
+
 export function useClientAssignments(clientId: string | undefined) {
   return useQuery<ClientAssignmentsResponse>({
     queryKey: ["admin", "assignments", clientId],
@@ -58,11 +77,12 @@ export function useEndAssignment(clientId: string) {
 export function useOverrideWorkout(clientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (overrideReason: string) => {
-      const { data } = await api.post(`/admin/clients/${clientId}/workout/override`, {
-        override_reason: overrideReason,
-      });
-      return data;
+    mutationFn: async (payload: OverrideWorkoutPayload) => {
+      const { data } = await api.post(
+        `/admin/clients/${clientId}/workout/override`,
+        payload,
+      );
+      return data as { id: string; override_reason: string; changes_applied: number };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "clients", clientId, "workout"] });
