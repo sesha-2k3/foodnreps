@@ -68,7 +68,12 @@ class CoachingInvite:
     @property
     def is_expired(self) -> bool:
         from datetime import timezone
-        return self.expires_at <= datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=timezone.utc)
+        expires = self.expires_at
+        # Normalise: if expires_at has no timezone, treat it as UTC
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return expires <= now
 
     @property
     def is_used(self) -> bool:
