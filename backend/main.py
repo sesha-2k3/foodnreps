@@ -50,6 +50,7 @@ from presentation.api.routes import (
     personal,
     trainer,
 )
+from presentation.api.routes.invites import router as invites_router
 
 # ── Exception status map ──────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ app.include_router(nutritionist.router, prefix="/nutritionist", tags=["Nutrition
 app.include_router(coach.router, prefix="/coach", tags=["Master Coach"])
 app.include_router(admin.router, prefix="/admin", tags=["Super Admin"])
 app.include_router(personal.router, prefix="/personal", tags=["Personal Plans"])
+app.include_router(invites_router, tags=["Invites"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
