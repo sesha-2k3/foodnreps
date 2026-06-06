@@ -736,3 +736,33 @@ class PlanActivityLogModel(Base):
         Index("idx_activity_log_plan", "plan_type", "plan_id", "occurred_at"),
         Index("idx_activity_log_actor", "actor_id", "occurred_at"),
     )
+
+
+class CoachingInviteModel(Base):
+    """
+    Maps to the coaching_invites table.
+
+    Design choice — code stored UPPERCASE in the DB:
+        The service layer always calls code.upper().strip() before saving
+        and before querying. This means lookups are case-insensitive from
+        the client's perspective — they can type "qrt-k4p" and it works.
+
+    Design choice — no is_revoked column:
+        Revocation = hard delete. An unused invite has no historical value.
+        This keeps the table clean and queries simple (no WHERE is_revoked=false
+        on every lookup). Used invites are preserved indefinitely for audit.
+    """
+
+    __tablename__ = "coaching_invites"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    staff_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    staff_role: Mapped[str] = mapped_column(
+        _sa_enum(StaffRole, "staff_role_enum"),
+        nullable=False,
+    )
+    code: Mapped[str] = mapped_column(String(8), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    used_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
