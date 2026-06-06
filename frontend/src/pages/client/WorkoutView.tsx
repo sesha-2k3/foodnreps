@@ -141,11 +141,11 @@ function toPrescriptionRow(p: WorkoutPrescriptionResponse): PrescriptionRow {
 
 function toDayLogRows(day: ProgramDayResponse): DayLogRow[] {
   return day.prescriptions
-    .flatMap((prescription) =>
-      prescription.logs.map((log) => ({
+    .flatMap((p) =>
+      (p.logs ?? []).map((log) => ({   // ← add ?? []
         id: log.id,
-        exercise_label: prescription.exercise_label,
-        exercise_name: prescription.exercise_name,
+        exercise_label: p.exercise_label,
+        exercise_name: p.exercise_name,
         logged_at_display: formatDate(log.logged_at),
         actual_sets: log.actual_sets,
         actual_reps: log.actual_reps,
@@ -154,7 +154,6 @@ function toDayLogRows(day: ProgramDayResponse): DayLogRow[] {
         tonnage_display: formatTonnage(log.tonnage_kg),
       })),
     )
-    // Sort by most recent log date first
     .sort((a, b) => b.logged_at_display.localeCompare(a.logged_at_display));
 }
 

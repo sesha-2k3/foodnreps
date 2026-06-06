@@ -110,7 +110,7 @@ function toPrescriptionRow(p: WorkoutPrescriptionResponse): PersonalPrescription
 function toDayLogRows(day: ProgramDayResponse): DayLogRow[] {
   return day.prescriptions
     .flatMap((p) =>
-      p.logs.map((log) => ({
+      (p.logs ?? []).map((log) => ({   // ← add ?? []
         id: log.id,
         exercise_label: p.exercise_label,
         exercise_name: p.exercise_name,
