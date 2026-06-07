@@ -21,7 +21,7 @@ programmes and diet plans.
 
 ## Quick start
 
-**Prerequisites:** Docker, Python 3.12, [uv](https://docs.astral.sh/uv/getting-started/installation/)
+**Prerequisites:** Docker, Python 3.14, [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ```bash
 # 1. Clone and enter the repo
@@ -43,7 +43,7 @@ make upgrade
 # 6. Start the development server
 make dev
 # → API at http://localhost:8000
-# → Swagger UI at http://localhost:8000/docs
+# → Swagger UI to check API endpoints at http://localhost:8000/docs
 ```
 
 ---
@@ -86,7 +86,7 @@ food_n_reps/
 │   ├── tests/          # unit/ and integration/ test suites
 │   ├── alembic/        # migration scripts
 │   └── main.py         # FastAPI app factory
-├── frontend/           # React + Vite (Sprint 5)
+├── frontend/           # React + Vite (Sprint 5 yet to be updated)
 ├── docker-compose.yml
 ├── .env.example
 └── Makefile
@@ -123,7 +123,9 @@ See the companion documents:
 
 
 trainer: trainer@foodnreps.com / trainer123
+
 client: client@foodnreps.com / client123
+
 admin: admin@foodnreps.com / admin123
 
 ```javascript
