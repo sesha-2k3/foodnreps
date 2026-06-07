@@ -5,12 +5,26 @@ Only the override endpoint changed from the previous version.
 Everything else (user management, assignments, plan read) is unchanged.
 """
 
+"""
+Admin routes — presentation/api/routes/admin.py
+
+Sprint 9 override: adds full workout programme CRUD endpoints so the
+super admin can add/remove weeks, days, and prescriptions for any client.
+
+These endpoints mirror the trainer/coach endpoints exactly but:
+  - Require super_admin role (not staff assignment)
+  - Skip every assignment ownership check
+  - Use WorkoutFactory + repos directly (no service assignment guard)
+"""
+
+from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.factories.workout_factory import WorkoutFactory
 from application.services.super_admin_service import SuperAdminService
 from core.exceptions import ForbiddenError, NotFoundError
 from domain.entities.enums import StaffRole, UserRole
@@ -34,16 +48,28 @@ from presentation.api.dependencies import (
     get_db,
     get_super_admin_service,
     get_user_repo,
+    get_workout_factory,
 )
 from presentation.api.schemas.admin_schema import (
-    AssignStaffRequest,
     AssignmentResponse,
+    AssignStaffRequest,
     ClientAssignmentsResponse,
     CreateUserRequest,
     EndAssignmentRequest,
     OverrideWorkoutRequest,
     UserListResponse,
     UserResponse,
+)
+from presentation.api.schemas.workout_schema import (
+    AddDayRequest,
+    AddPrescriptionRequest,
+    AddWeekRequest,
+    CreateProgrammeRequest,
+    ProgramDayResponse,
+    ProgramWeekResponse,
+    UpdatePrescriptionRequest,
+    WorkoutPrescriptionResponse,
+    WorkoutProgramResponse,
 )
 from presentation.middleware.auth_guard import get_current_user
 
@@ -184,12 +210,6 @@ async def get_client_workout(
     _admin: User = Depends(require_super_admin),
     session: AsyncSession = Depends(get_db),
 ) -> dict:
-    from presentation.api.schemas.workout_schema import (
-        ProgramDayResponse,
-        ProgramWeekResponse,
-        WorkoutProgramResponse,
-    )
-
     prog_repo = WorkoutProgramRepository(session)
     week_repo = ProgramWeekRepository(session)
     day_repo = ProgramDayRepository(session)
@@ -237,7 +257,7 @@ async def get_client_diet(
     return DietPlanResponse.from_entities(plan, entries).model_dump()
 
 
-# ── Plan override (atomic: reason + prescription patches) ─────────────────────
+# ── Plan override (reason + optional field patches) ───────────────────────────
 
 
 @router.post("/clients/{client_id}/workout/override")
@@ -254,8 +274,6 @@ async def override_workout(
     if program is None:
         raise NotFoundError(f"No active programme for client {client_id}")
 
-    # Serialise PrescriptionPatch models to plain dicts for the service layer.
-    # The service converts float → Decimal for the relevant fields.
     changes_as_dicts = [patch.model_dump(exclude_none=True) for patch in body.changes]
 
     saved = await svc.override_workout_programme(
@@ -269,3 +287,139 @@ async def override_workout(
         "override_reason": saved.override_reason,
         "changes_applied": len(body.changes),
     }
+
+
+# ── Programme builder CRUD ────────────────────────────────────────────────────
+# These mirror the trainer/coach endpoints exactly but bypass assignment checks.
+# The URL pattern /admin/clients/:id/workout/... is what useProgrammeMutations
+# builds when rolePrefix === "admin".
+
+
+@router.post("/clients/{client_id}/workout", response_model=dict, status_code=201)
+async def create_programme(
+    client_id: UUID,
+    body: CreateProgrammeRequest,
+    admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+    factory: WorkoutFactory = Depends(get_workout_factory),
+) -> dict:
+    repo = WorkoutProgramRepository(session)
+    program = factory.create_programme(
+        owner_id=client_id,
+        created_by_id=admin.id,
+        name=body.name,
+        is_personal=False,
+    )
+    saved = await repo.save(program)
+    return WorkoutProgramResponse.from_entity(saved, []).model_dump()
+
+
+@router.post("/clients/{client_id}/workout/weeks", status_code=201)
+async def add_week(
+    client_id: UUID,
+    body: AddWeekRequest,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+    factory: WorkoutFactory = Depends(get_workout_factory),
+) -> dict:
+    prog_repo = WorkoutProgramRepository(session)
+    week_repo = ProgramWeekRepository(session)
+
+    program = await prog_repo.get_active_assigned_by_owner(client_id)
+    if program is None:
+        raise NotFoundError(f"No active programme for client {client_id}")
+
+    week = factory.create_week(
+        program_id=program.id,
+        week_number=body.week_number,
+        label=body.label,
+        notes=body.notes,
+    )
+    saved = await week_repo.save(week)
+    return ProgramWeekResponse.from_entities(saved, []).model_dump()
+
+
+@router.post("/clients/{client_id}/workout/weeks/{week_id}/days", status_code=201)
+async def add_day(
+    client_id: UUID,
+    week_id: UUID,
+    body: AddDayRequest,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+    factory: WorkoutFactory = Depends(get_workout_factory),
+) -> dict:
+    day_repo = ProgramDayRepository(session)
+    day = factory.create_day(
+        week_id=week_id,
+        day_number=body.day_number,
+        label=body.label,
+        notes=body.notes,
+    )
+    saved = await day_repo.save(day)
+    return ProgramDayResponse.from_entities(saved, [], {}).model_dump()
+
+
+@router.post(
+    "/clients/{client_id}/workout/days/{day_id}/prescriptions", status_code=201
+)
+async def add_prescription(
+    client_id: UUID,
+    day_id: UUID,
+    body: AddPrescriptionRequest,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+    factory: WorkoutFactory = Depends(get_workout_factory),
+) -> dict:
+    repo = WorkoutPrescriptionRepository(session)
+    prescription = factory.create_prescription(
+        day_id=day_id,
+        order_index=body.order_index,
+        exercise_name=body.exercise_name,
+        warmup_sets=body.warmup_sets,
+        working_sets=body.working_sets,
+        reps_min=body.reps_min,
+        reps_max=body.reps_max,
+        reps_note=body.reps_note,
+        prescribed_load_kg=body.prescribed_load_kg,
+        prescribed_load_text=body.prescribed_load_text,
+        prescribed_rpe=body.prescribed_rpe,
+        prescribed_rir=body.prescribed_rir,
+        rest_seconds=body.rest_seconds,
+        instructions=body.instructions,
+    )
+    saved = await repo.save(prescription)
+    return WorkoutPrescriptionResponse.from_entity(saved, []).model_dump()
+
+
+@router.patch("/clients/{client_id}/workout/prescriptions/{prescription_id}")
+async def update_prescription(
+    client_id: UUID,
+    prescription_id: UUID,
+    body: UpdatePrescriptionRequest,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    repo = WorkoutPrescriptionRepository(session)
+    prescription = await repo.get_by_id(prescription_id)
+    if prescription is None:
+        raise NotFoundError(f"Prescription {prescription_id} not found")
+
+    patch = {
+        "updated_at": datetime.now(tz=timezone.utc),
+        **body.model_dump(exclude_none=True),
+    }
+    saved = await repo.save(replace(prescription, **patch))
+    return WorkoutPrescriptionResponse.from_entity(saved, []).model_dump()
+
+
+@router.delete(
+    "/clients/{client_id}/workout/prescriptions/{prescription_id}", status_code=204
+)
+async def delete_prescription(
+    client_id: UUID,
+    prescription_id: UUID,
+    _admin: User = Depends(require_super_admin),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    repo = WorkoutPrescriptionRepository(session)
+    await repo.delete(prescription_id)
