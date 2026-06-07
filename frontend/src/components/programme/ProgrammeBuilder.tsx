@@ -31,6 +31,14 @@
  *   cache with authoritative server values.
  */
 
+/**
+ * ProgrammeBuilder — the workout programme hierarchy editor.
+ *
+ * Change from previous version:
+ *   rolePrefix prop now accepts 'admin' in addition to CoachingRole | 'personal'.
+ *   No other changes — useProgrammeMutations handles the URL/key difference.
+ */
+
 import React, { useState } from 'react';
 import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
@@ -50,20 +58,19 @@ import type { CoachingRole } from '../../hooks/useAssignedClients';
 interface ProgrammeBuilderProps {
   clientId: string;
   clientName: string;
-  rolePrefix: CoachingRole | 'personal';
+  rolePrefix: CoachingRole | 'personal' | 'admin'; // ← added 'admin'
   programme: WorkoutProgramResponse | null;
 }
 
 // ── Coach prescription row type ───────────────────────────────────────────────
-// Flat row for FitnessTable. Raw values (not display strings) for editability.
 
 interface CoachPrescriptionRow extends Record<string, unknown> {
   id: string;
   exercise_label: string;
   exercise_name: string;
   working_sets: string;
-  reps_display: string;    // ← replaces reps_min + reps_max
-  load_display: string;    // ← replaces prescribed_load_kg
+  reps_display: string;
+  load_display: string;
   prescribed_rpe: string;
   rest_display: string;
   instructions: string;
@@ -153,18 +160,15 @@ function InlineAddForm({
 function DaySection({
   day,
   mutations,
-  baseUrl,
 }: {
   day: ProgramDayResponse;
   mutations: ReturnType<typeof useProgrammeMutations>;
-  baseUrl: string;
 }) {
   const [addingExercise, setAddingExercise] = useState(false);
   const rows = day.prescriptions.map(toPrescriptionRow);
 
   return (
     <div className="mb-5 last:mb-0">
-      {/* Day header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
@@ -184,7 +188,6 @@ function DaySection({
         </button>
       </div>
 
-      {/* Prescription table */}
       <div className="ring-1 ring-blue-100 rounded-lg overflow-hidden">
         <FitnessTable<CoachPrescriptionRow>
           columns={COACH_PRESCRIPTION_COLUMNS}
@@ -203,7 +206,6 @@ function DaySection({
         />
       </div>
 
-      {/* Add exercise modal */}
       {addingExercise && (
         <AddPrescriptionModal
           dayLabel={day.label}
@@ -234,7 +236,6 @@ function WeekSection({
 
   return (
     <div className="mb-4 rounded-xl border border-gray-200 overflow-hidden">
-      {/* Week header */}
       <button
         type="button"
         onClick={() => setIsOpen((p) => !p)}
@@ -258,17 +259,14 @@ function WeekSection({
         <div className="divide-y divide-gray-100">
           {week.days.map((day) => (
             <div key={day.id} className="px-5 py-4">
-              <DaySection day={day} mutations={mutations} baseUrl="" />
+              <DaySection day={day} mutations={mutations} />
             </div>
           ))}
 
           {week.days.length === 0 && !addingDay && (
-            <p className="px-5 py-5 text-sm text-gray-400 italic text-center">
-              No days yet.
-            </p>
+            <p className="px-5 py-5 text-sm text-gray-400 italic text-center">No days yet.</p>
           )}
 
-          {/* Add day inline */}
           <div className="px-5 py-3">
             {addingDay ? (
               <InlineAddForm
@@ -319,13 +317,10 @@ function CreateProgrammeForm({
     <div className="max-w-md mx-auto text-center py-16">
       <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-            d="M12 4v16m8-8H4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-gray-900 mb-1">
-        No programme for {clientName}
-      </h3>
+      <h3 className="text-base font-semibold text-gray-900 mb-1">No programme for {clientName}</h3>
       <p className="text-sm text-gray-500 mb-6">Create one to get started.</p>
       <div className="flex gap-2 max-w-sm mx-auto">
         <input
@@ -333,9 +328,7 @@ function CreateProgrammeForm({
           placeholder="Programme name, e.g. 12-Week Strength Block"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && name.trim()) void onCreate(name.trim());
-          }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void onCreate(name.trim()); }}
           className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -366,9 +359,7 @@ export function ProgrammeBuilder({
     return (
       <CreateProgrammeForm
         clientName={clientName}
-        onCreate={async (name) => {
-          await mutations.createProgramme.mutateAsync({ name });
-        }}
+        onCreate={async (name) => { await mutations.createProgramme.mutateAsync({ name }); }}
         isPending={mutations.createProgramme.isPending}
       />
     );
@@ -376,7 +367,6 @@ export function ProgrammeBuilder({
 
   return (
     <div>
-      {/* Programme header */}
       <div className="mb-5 pb-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">{programme.name}</h2>
         {programme.coach_notes && (
@@ -384,7 +374,6 @@ export function ProgrammeBuilder({
         )}
       </div>
 
-      {/* Weeks */}
       {programme.weeks.length === 0 && !addingWeek && (
         <p className="text-sm text-gray-400 italic text-center py-10">
           No weeks yet — add the first one below.
@@ -392,15 +381,9 @@ export function ProgrammeBuilder({
       )}
 
       {programme.weeks.map((week, idx) => (
-        <WeekSection
-          key={week.id}
-          week={week}
-          defaultOpen={idx === 0}
-          mutations={mutations}
-        />
+        <WeekSection key={week.id} week={week} defaultOpen={idx === 0} mutations={mutations} />
       ))}
 
-      {/* Add week inline form */}
       <div className="mt-3">
         {addingWeek ? (
           <div className="p-4 rounded-xl border-2 border-dashed border-gray-200">

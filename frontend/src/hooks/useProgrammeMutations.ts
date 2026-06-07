@@ -34,6 +34,18 @@
  *   role enum keeps the hook decoupled from the role model.
  */
 
+/**
+ * useProgrammeMutations — all workout hierarchy write operations for
+ * coaching staff, personal plan self-management, and super admin.
+ *
+ * Change from previous version:
+ *   rolePrefix now accepts 'admin' in addition to CoachingRole | 'personal'.
+ *   When rolePrefix === 'admin', the base URL becomes
+ *   /admin/clients/:clientId/workout and the query key is
+ *   ['admin', 'clients', clientId, 'workout'] — matching the admin
+ *   GET endpoint and PlanOverride's useQuery key.
+ */
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { coachProgrammeKey } from './useCoachProgramme';
@@ -50,22 +62,21 @@ import type {
   UpdatePrescriptionRequest,
 } from '../types/api';
 
-// Re-export for personal plan wiring
 export const PERSONAL_PROGRAMME_KEY = ['personal', 'workout'] as const;
 
 export function useProgrammeMutations(
   clientId: string,
-  rolePrefix: CoachingRole | 'personal',
+  rolePrefix: CoachingRole | 'personal' | 'admin',
 ) {
   const queryClient = useQueryClient();
 
-  // Query key differs for personal vs coached plans
   const queryKey =
     rolePrefix === 'personal'
       ? PERSONAL_PROGRAMME_KEY
-      : coachProgrammeKey(rolePrefix as CoachingRole, clientId);
+      : rolePrefix === 'admin'
+        ? (['admin', 'clients', clientId, 'workout'] as const)
+        : coachProgrammeKey(rolePrefix as CoachingRole, clientId);
 
-  // Base URL differs between personal and coached plans
   const baseUrl =
     rolePrefix === 'personal'
       ? '/personal/workout'
@@ -118,15 +129,11 @@ export function useProgrammeMutations(
         .then((r) => r.data),
 
     onMutate: async ({ dayId, data }) => {
-      // Cancel any in-flight refetch to avoid overwriting the optimistic update
       await queryClient.cancelQueries({ queryKey });
-
-      // Snapshot current cache for rollback
       const previous = queryClient.getQueryData<WorkoutProgramResponse | null>(
         queryKey as unknown as readonly unknown[],
       );
 
-      // Optimistically insert a placeholder prescription
       queryClient.setQueryData(
         queryKey as unknown as readonly unknown[],
         (old: WorkoutProgramResponse | null | undefined) => {
@@ -179,13 +186,11 @@ export function useProgrammeMutations(
     },
 
     onError: (_err, _vars, context) => {
-      // Roll back to the snapshot
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKey as unknown as readonly unknown[], context.previous);
       }
     },
 
-    // Always sync with server to replace temp ID + placeholder display fields
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 

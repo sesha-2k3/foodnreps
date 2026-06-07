@@ -141,13 +141,20 @@ export interface ProgramWeekResponse {
  * Contains the full week → day → prescription → log tree for a single
  * active programme.
  */
+// types/api.ts — WorkoutProgramResponse
 export interface WorkoutProgramResponse {
   id: string;
   name: string;
-  /** Programme-level coaching notes. Visible to the client. */
-  coach_notes: string | null;
-  /** True when owner built this for themselves (orphan mode). */
+  is_active: boolean;
   is_personal: boolean;
+  is_template: boolean;
+  coach_notes: string | null;
+  owner_id: string;
+  created_by_id: string;
+  version: number;
+  override_reason: string | null;
+  created_at: string;
+  updated_at: string;
   weeks: ProgramWeekResponse[];
 }
 
