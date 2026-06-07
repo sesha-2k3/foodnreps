@@ -25,7 +25,7 @@ programmes and diet plans.
 
 ```bash
 # 1. Clone and enter the repo
-git clone <repo-url> && cd food_n_reps
+git clone <repo-url> && cd foodnreps
 
 # 2. Copy environment variables
 cp .env.example .env
