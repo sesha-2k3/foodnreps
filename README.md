@@ -2,7 +2,7 @@
 
 Multi-role fitness coaching platform. Clients, fitness trainers, nutritionists,
 master coaches, and super admins — each with their own domain over workout
-programmes and diet plans.
+programmes and diet plans. All in one management for one's fitness needs.
 
 ---
 
