@@ -15,7 +15,7 @@ programmes and diet plans. All in one management for one's fitness needs.
 | Database | PostgreSQL 16 |
 | Migrations | Alembic |
 | Package manager | uv |
-| Frontend | React + Vite + TypeScript (Sprint 5) |
+| Frontend | React + Vite + TypeScript (from Sprint 5) |
 
 ---
 
