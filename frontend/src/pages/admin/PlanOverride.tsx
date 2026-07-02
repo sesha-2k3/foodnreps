@@ -5,6 +5,7 @@ import { api } from "../../services/api";
 import { useAdminUser } from "../../hooks/useAdminUsers";
 import { useOverrideWorkout } from "../../hooks/useAdminAssignments";
 import { ProgrammeBuilder } from "../../components/programme/ProgrammeBuilder";
+import { CommentThread } from "../../components/comments/CommentThread";
 import type { WorkoutProgramResponse } from "../../types/api";
 
 type PlanMode = "workout" | "diet";
@@ -102,9 +103,6 @@ export default function PlanOverride() {
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fetch the plan — both read mode and ProgrammeBuilder use this cache entry.
-  // Mutations in ProgrammeBuilder invalidate ['admin','clients',clientId,'workout']
-  // which triggers a refetch here, keeping the builder in sync.
   const { data: planData, isLoading, error } = useQuery({
     queryKey: ["admin", "clients", clientId, mode],
     queryFn: async () => {
@@ -114,9 +112,7 @@ export default function PlanOverride() {
     enabled: !!clientId,
   });
 
-  // Client name for ProgrammeBuilder's "no programme" empty state
   const { data: clientUser } = useAdminUser(clientId);
-
   const overrideMutation = useOverrideWorkout(clientId!);
 
   async function handleRecordReason() {
@@ -183,14 +179,12 @@ export default function PlanOverride() {
         </div>
       )}
 
-      {/* Override reason banner — shown while in override mode */}
+      {/* Override reason banner */}
       {overrideMode && mode === "workout" && (
         <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900 mb-1">
-                Override mode active
-              </p>
+              <p className="text-sm font-semibold text-amber-900 mb-1">Override mode active</p>
               <p className="text-xs text-amber-700 mb-2">
                 Changes are saved immediately to the database. When finished, enter a reason and
                 click "Record reason" — this writes an immutable audit entry to version history.
@@ -239,7 +233,6 @@ export default function PlanOverride() {
       {mode === "workout" && (
         <div className="bg-white shadow rounded-lg p-6">
           {overrideMode ? (
-            // Full ProgrammeBuilder — same experience as trainer/coach
             <ProgrammeBuilder
               clientId={clientId!}
               clientName={clientUser?.full_name ?? "Client"}
@@ -247,38 +240,40 @@ export default function PlanOverride() {
               programme={planData ?? null}
             />
           ) : (
-            <>
-              {planData && (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="font-semibold text-gray-800 text-lg">{planData.name}</h2>
-                      {planData.override_reason && (
-                        <p className="text-xs text-amber-700 mt-0.5">
-                          Last override: {planData.override_reason}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setOverrideMode(true)}
-                      className="px-4 py-2 border border-amber-400 text-amber-700 rounded-md text-sm font-medium hover:bg-amber-50"
-                    >
-                      Override
-                    </button>
+            planData && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-semibold text-gray-800 text-lg">{planData.name}</h2>
+                    {planData.override_reason && (
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Last override: {planData.override_reason}
+                      </p>
+                    )}
                   </div>
-                  <WorkoutReadOnly data={planData} />
-                </>
-              )}
-            </>
+                  <button
+                    onClick={() => setOverrideMode(true)}
+                    className="px-4 py-2 border border-amber-400 text-amber-700 rounded-md text-sm font-medium hover:bg-amber-50"
+                  >
+                    Override
+                  </button>
+                </div>
+                <WorkoutReadOnly data={planData} />
+              </>
+            )
+          )}
+          {planData && (
+            <CommentThread planType="workout" planId={planData.id} />
           )}
         </div>
       )}
 
-      {/* Diet — always read-only (diet override is Sprint 10 scope) */}
+      {/* Diet — read-only */}
       {mode === "diet" && planData && (
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="font-semibold text-gray-800 text-lg mb-4">{planData.name}</h2>
           <DietReadOnly data={planData as unknown as Record<string, unknown>} />
+          <CommentThread planType="diet" planId={planData.id} />
         </div>
       )}
     </div>
