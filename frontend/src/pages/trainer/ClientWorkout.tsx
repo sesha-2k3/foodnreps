@@ -15,6 +15,7 @@ import { ProgrammeBuilder } from '../../components/programme/ProgrammeBuilder';
 import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
 import { useCoachProgramme, useCoachDiet } from '../../hooks/useCoachProgramme';
+import { CommentThread } from '../../components/comments/CommentThread';
 
 interface ReadDietRow extends Record<string, unknown> {
   id: string;
@@ -84,12 +85,17 @@ export function TrainerClientWorkout() {
       {activeTab === 'workout' && (
         wLoading
           ? <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-          : <ProgrammeBuilder
-              clientId={clientId}
-              clientName="Client"
-              rolePrefix="trainer"
-              programme={programme ?? null}
-            />
+          : <>
+              <ProgrammeBuilder
+                clientId={clientId}
+                clientName="Client"
+                rolePrefix="trainer"
+                programme={programme ?? null}
+              />
+              {programme && (
+                <CommentThread planType="workout" planId={programme.id} />
+              )}
+            </>
       )}
 
       {activeTab === 'diet' && (
@@ -122,6 +128,7 @@ export function TrainerClientWorkout() {
                 editable={false}
                 emptyMessage="No diet entries yet."
               />
+              <CommentThread planType="diet" planId={diet.id} />
             </div>
           )
       )}

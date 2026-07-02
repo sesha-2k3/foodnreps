@@ -16,6 +16,7 @@ import { DietBuilder } from '../../components/diet/DietBuilder';
 import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
 import { useCoachProgramme, useCoachDiet } from '../../hooks/useCoachProgramme';
+import { CommentThread } from '../../components/comments/CommentThread';
 
 interface ReadPrescRow extends Record<string, unknown> {
   id: string;
@@ -69,12 +70,15 @@ export function NutritionistClientDiet() {
       {activeTab === 'diet' && (
         dLoading
           ? <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-          : <DietBuilder
-              clientId={clientId}
-              clientName="Client"
-              rolePrefix="nutritionist"
-              plan={diet ?? null}
-            />
+          : <>
+              <DietBuilder
+                clientId={clientId}
+                clientName="Client"
+                rolePrefix="nutritionist"
+                plan={diet ?? null}
+              />
+              {diet && <CommentThread planType="diet" planId={diet.id} />}
+            </>
       )}
 
       {/* Workout tab — read-only cross-domain view */}
@@ -114,6 +118,7 @@ export function NutritionistClientDiet() {
                   </div>
                 ))
               )}
+              <CommentThread planType="workout" planId={programme.id} />
             </div>
           )
       )}
