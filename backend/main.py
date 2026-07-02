@@ -46,6 +46,7 @@ from presentation.api.routes import (
     auth,
     client,
     coach,
+    comments,
     nutritionist,
     personal,
     trainer,
@@ -144,6 +145,7 @@ app.include_router(coach.router, prefix="/coach", tags=["Master Coach"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(personal.router, prefix="/personal", tags=["Personal Plans"])
 app.include_router(invites_router, tags=["Invites"])
+app.include_router(comments.router, prefix="/plans", tags=["Comments"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
