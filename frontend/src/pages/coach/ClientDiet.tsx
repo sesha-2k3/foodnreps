@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DietBuilder } from '../../components/diet/DietBuilder';
 import { useCoachDiet } from '../../hooks/useCoachProgramme';
+import { CommentThread } from '../../components/comments/CommentThread';
 
 export function CoachClientDiet() {
   const { id: clientId = '' } = useParams<{ id: string }>();
@@ -32,12 +33,15 @@ export function CoachClientDiet() {
 
       {isLoading
         ? <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-        : <DietBuilder
-            clientId={clientId}
-            clientName="Client"
-            rolePrefix="coach"
-            plan={diet ?? null}
-          />
+        : <>
+            <DietBuilder
+              clientId={clientId}
+              clientName="Client"
+              rolePrefix="coach"
+              plan={diet ?? null}
+            />
+            {diet && <CommentThread planType="diet" planId={diet.id} />}
+          </>
       }
     </div>
   );
