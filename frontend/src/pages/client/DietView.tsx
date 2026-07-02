@@ -29,6 +29,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
+import { CommentThread } from '../../components/comments/CommentThread';
 import { useClientDiet } from '../../hooks/useClientDiet';
 import { sumMacros } from '../../utils/format';
 import type { DietPlanResponse, DietEntryResponse } from '../../types/api';
@@ -38,10 +39,10 @@ import type { DietPlanResponse, DietEntryResponse } from '../../types/api';
 interface DietEntryRow extends Record<string, unknown> {
   id: string;
   food_name: string;
-  calories: string;     // Decimal string: "480.00"
-  protein_g: string;    // "35.00"
-  fat_g: string;        // "12.00"
-  carbs_g: string;      // "55.00"
+  calories: string;
+  protein_g: string;
+  fat_g: string;
+  carbs_g: string;
 }
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -117,10 +118,10 @@ function MacroTotals({ entries }: { entries: DietEntryResponse[] }) {
 
   return (
     <div className="mt-3 grid grid-cols-4 gap-3">
-      <MacroCard label="Calories" value={Math.round(totals.calories).toLocaleString()} unit="" accent="text-gray-900" bg="bg-gray-50" />
-      <MacroCard label="Protein"  value={totals.protein_g.toFixed(1)} unit="g" accent="text-blue-700"  bg="bg-blue-50"  />
-      <MacroCard label="Fat"      value={totals.fat_g.toFixed(1)}     unit="g" accent="text-amber-700" bg="bg-amber-50" />
-      <MacroCard label="Carbs"    value={totals.carbs_g.toFixed(1)}   unit="g" accent="text-green-700" bg="bg-green-50" />
+      <MacroCard label="Calories" value={Math.round(totals.calories).toLocaleString()} unit=""  accent="text-gray-900"  bg="bg-gray-50"  />
+      <MacroCard label="Protein"  value={totals.protein_g.toFixed(1)}                 unit="g" accent="text-blue-700"  bg="bg-blue-50"  />
+      <MacroCard label="Fat"      value={totals.fat_g.toFixed(1)}                     unit="g" accent="text-amber-700" bg="bg-amber-50" />
+      <MacroCard label="Carbs"    value={totals.carbs_g.toFixed(1)}                   unit="g" accent="text-green-700" bg="bg-green-50" />
     </div>
   );
 }
@@ -220,6 +221,9 @@ export function DietView() {
 
       {/* Macro totals */}
       <MacroTotals entries={plan.entries} />
+
+      {/* Coach comments thread */}
+      <CommentThread planType="diet" planId={plan.id} />
     </div>
   );
 }

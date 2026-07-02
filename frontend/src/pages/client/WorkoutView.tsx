@@ -53,12 +53,12 @@ import { Link } from 'react-router-dom';
 import { FitnessTable } from '../../components/table/FitnessTable';
 import type { FitnessColumnDef } from '../../components/table/FitnessTable';
 import { LogEntryModal } from '../../components/workout/LogEntryModal';
+import { CommentThread } from '../../components/comments/CommentThread';
 import { useClientWorkout } from '../../hooks/useClientWorkout';
 import {
   formatLoad,
   formatRest,
   formatTonnage,
-  formatElapsedTime,
   formatDate,
   formatRpe,
 } from '../../utils/format';
@@ -70,18 +70,16 @@ import type {
 } from '../../types/api';
 
 // ── View-model row types ──────────────────────────────────────────────────────
-// These flat types satisfy FitnessTable<T extends Record<string, unknown>>.
-// They contain only the columns to display — no nested objects.
 
 interface PrescriptionRow extends Record<string, unknown> {
   id: string;
   exercise_label: string;
   exercise_name: string;
-  working_sets: string;      // "4", "—"
-  reps_display: string;      // "6–8", "max reps"
-  load_display: string;      // "70 kg", "BW"
-  rpe_display: string;       // "@ 8", "—"
-  rest_display: string;      // "3 min", "1:30"
+  working_sets: string;
+  reps_display: string;
+  load_display: string;
+  rpe_display: string;
+  rest_display: string;
   instructions: string;
 }
 
@@ -89,12 +87,12 @@ interface DayLogRow extends Record<string, unknown> {
   id: string;
   exercise_label: string;
   exercise_name: string;
-  logged_at_display: string; // "8 Apr"
+  logged_at_display: string;
   actual_sets: number;
   actual_reps: number;
-  load_display: string;      // "70 kg", "BW"
-  rpe_display: string;       // "@ 8.5", "—"
-  tonnage_display: string;   // "1,960 kg", "—"
+  load_display: string;
+  rpe_display: string;
+  tonnage_display: string;
 }
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -122,8 +120,6 @@ const LOG_COLUMNS: FitnessColumnDef<DayLogRow>[] = [
 ];
 
 // ── Row mapping functions ─────────────────────────────────────────────────────
-// The translation layer between API response types and view-model row types.
-// Analogous to repository _to_entity() — one place to update when field names change.
 
 function toPrescriptionRow(p: WorkoutPrescriptionResponse): PrescriptionRow {
   return {
@@ -142,7 +138,7 @@ function toPrescriptionRow(p: WorkoutPrescriptionResponse): PrescriptionRow {
 function toDayLogRows(day: ProgramDayResponse): DayLogRow[] {
   return day.prescriptions
     .flatMap((p) =>
-      (p.logs ?? []).map((log) => ({   // ← add ?? []
+      (p.logs ?? []).map((log) => ({
         id: log.id,
         exercise_label: p.exercise_label,
         exercise_name: p.exercise_name,
@@ -185,7 +181,6 @@ function DaySection({
 
   return (
     <div className="mb-6 last:mb-0">
-      {/* Day header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
           <span className="text-xs font-bold text-gray-500">{day.day_number}</span>
@@ -267,7 +262,6 @@ function WeekSection({
 
   return (
     <div className="mb-4 rounded-xl border border-gray-200 overflow-hidden">
-      {/* Week header — clickable to expand/collapse */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -297,7 +291,6 @@ function WeekSection({
         </div>
       </button>
 
-      {/* Expanded week content */}
       {isOpen && (
         <div className="divide-y divide-gray-100">
           {week.days.map((day) => (
@@ -394,13 +387,14 @@ export function WorkoutView() {
           <WeekSection
             key={week.id}
             week={week}
-            defaultOpen={idx === 0}  // First week open; all others collapsed
+            defaultOpen={idx === 0}
             onLogClick={setLogModalDay}
           />
         ))
       )}
 
-      {/* Log entry modal — scoped to a specific day */}
+      <CommentThread planType="workout" planId={programme.id} />
+
       {logModalDay && (
         <LogEntryModal
           day={logModalDay}
